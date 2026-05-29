@@ -765,14 +765,14 @@ export function RSSMindMap() {
         const isLast = bookChapter === chapters.length - 1 && bookPage === totalPages - 1
 
         return (
-          <div className="flex gap-0 overflow-hidden rounded-2xl border border-zinc-700 shadow-2xl shadow-black/60" style={{ minHeight: 600 }}>
-            {/* 목차 사이드바 */}
-            <div className="w-52 shrink-0 border-r border-zinc-700 bg-zinc-900 flex flex-col">
-              <div className="border-b border-zinc-700 px-4 py-4">
-                <div className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">목차</div>
-                <div className="text-sm font-bold text-zinc-200 leading-snug line-clamp-2">{data?.channelTitle}</div>
+          <div className="relative flex gap-0 overflow-hidden rounded-2xl p-3 bg-[#2b1708] border-[8px] border-[#3a200e] ring-2 ring-[#c5a86a]/80 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)]" style={{ minHeight: 650 }}>
+            {/* 목차 사이드바 (왼쪽 페이지) */}
+            <div className="w-56 shrink-0 bg-parchment text-[#3c2a1e] font-rpg-body flex flex-col relative border-r-2 border-[#8c7456]/40 shadow-[inset_-10px_0_20px_rgba(0,0,0,0.06)] rounded-l-lg">
+              <div className="border-b border-[#8c7456]/30 px-5 py-5">
+                <div className="text-[10px] font-rpg-title font-bold tracking-widest text-[#8c7456] mb-1.5">Table of Contents</div>
+                <div className="text-sm font-bold font-rpg-title text-[#4c321a] leading-snug line-clamp-2">{data?.channelTitle}</div>
               </div>
-              <div className="flex-1 overflow-y-auto py-2">
+              <div className="flex-1 overflow-y-auto py-3 px-2">
                 {chapters.map((ch, idx) => {
                   const active = bookChapter === idx
                   const chColors = ch.isToC ? null : getCategoryColor(ch.id)
@@ -781,18 +781,18 @@ export function RSSMindMap() {
                       key={ch.id}
                       onClick={() => { setBookChapter(idx); setBookPage(0) }}
                       className={cn(
-                        "w-full text-left px-4 py-2.5 text-xs transition-all flex items-start gap-2",
+                        "w-full text-left px-3 py-2 text-xs transition-all flex items-start gap-2 rounded-md font-rpg-body",
                         active
-                          ? "bg-zinc-800 font-semibold text-zinc-100"
-                          : "text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300"
+                          ? "bg-[#8c7456]/15 text-[#402306] font-bold border-l-4 border-[#8c7456] pl-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.05)]"
+                          : "text-[#6d5137] hover:bg-[#8c7456]/10 hover:text-[#3c2a1e]"
                       )}
                     >
                       {!ch.isToC && (
                         <span
-                          className="mt-0.5 shrink-0 rounded px-1 py-0.5 text-[9px] font-bold"
-                          style={{ background: chColors ? chColors.hex + "33" : undefined, color: chColors?.hex }}
+                          className="mt-0.5 shrink-0 rounded border border-[#8c7456]/40 px-1 py-0.5 text-[8px] font-bold bg-[#eadeb8]/30 font-rpg-title"
+                          style={{ color: chColors?.hex || "#8c7456" }}
                         >
-                          {(ch as any).chapterNum}장
+                          {(ch as any).chapterNum}
                         </span>
                       )}
                       <span className="leading-snug">{ch.title}</span>
@@ -800,20 +800,23 @@ export function RSSMindMap() {
                   )
                 })}
               </div>
-              <div className="border-t border-zinc-700 px-4 py-3 text-[10px] text-zinc-600">
+              <div className="border-t border-[#8c7456]/30 px-5 py-3.5 text-[10px] text-[#8c7456] italic font-medium">
                 총 {data?.items.length}편 수록
               </div>
             </div>
 
-            {/* 본문 페이지 */}
-            <div className="flex flex-1 flex-col bg-zinc-950">
+            {/* RPG 책 중간 책등(접힌 그림자) 효과선 (w-56은 224px + 12px 패딩 + 8px 보더 = 244px) */}
+            <div className="absolute top-0 bottom-0 left-[244px] w-6 pointer-events-none z-10 bg-gradient-to-r from-black/0 via-black/35 to-black/0" />
+
+            {/* 본문 페이지 (오른쪽 페이지) */}
+            <div className="flex flex-1 flex-col bg-parchment text-[#2b1a0e] font-rpg-body shadow-[inset_10px_0_20px_rgba(0,0,0,0.06)] rounded-r-lg">
               {/* 페이지 헤더 */}
-              <div className="flex items-center justify-between border-b border-zinc-800 px-8 py-4">
-                <div className="text-xs text-zinc-600 uppercase tracking-widest">
-                  {currentChapter.isToC ? "목차" : `제${(currentChapter as any).chapterNum}장`}
+              <div className="flex items-center justify-between border-b border-[#8c7456]/30 px-8 py-4">
+                <div className="text-[10px] font-rpg-title font-bold tracking-widest text-[#8c7456]">
+                  {currentChapter.isToC ? "Index" : `Chapter ${(currentChapter as any).chapterNum}`}
                 </div>
-                <div className="text-xs text-zinc-600">
-                  {currentChapter.isToC ? "" : `${bookPage + 1} / ${totalPages} 페이지`}
+                <div className="text-xs text-[#8c7456] italic font-medium">
+                  {currentChapter.isToC ? "Start" : `${bookPage + 1} / ${totalPages} Page`}
                 </div>
               </div>
 
@@ -822,45 +825,59 @@ export function RSSMindMap() {
                 {currentChapter.isToC ? (
                   // 목차 페이지
                   <div>
-                    <h1 className="mb-2 text-3xl font-bold text-zinc-100" style={{ fontFamily: "serif" }}>목차</h1>
-                    <div className="mb-8 h-px bg-zinc-700" />
-                    <div className="space-y-3">
+                    <h1 className="mb-2 text-2xl font-bold font-rpg-title text-[#4c321a] tracking-wide text-center mt-2">목차</h1>
+                    
+                    {/* 장식적 디바이더 */}
+                    <div className="flex items-center justify-center my-6 gap-3 select-none">
+                      <div className="h-[1px] bg-gradient-to-r from-transparent via-[#8c7456]/60 to-transparent flex-1"></div>
+                      <div className="text-[#8c7456] text-xs">◆ ❖ ◆</div>
+                      <div className="h-[1px] bg-gradient-to-r from-transparent via-[#8c7456]/60 to-transparent flex-1"></div>
+                    </div>
+
+                    <div className="space-y-4 max-w-md mx-auto">
                       {chapters.filter(ch => !ch.isToC).map((ch) => {
                         const chColors = getCategoryColor(ch.id)
                         return (
                           <button
                             key={ch.id}
                             onClick={() => { setBookChapter(chapters.indexOf(ch)); setBookPage(0) }}
-                            className="flex w-full items-baseline gap-3 text-left group"
+                            className="flex w-full items-baseline gap-2 text-left group transition-colors py-1"
                           >
-                            <span className="text-sm font-bold shrink-0" style={{ color: chColors.hex }}>
+                            <span className="font-rpg-title text-sm font-bold text-[#8c7456] group-hover:text-[#4c321a] shrink-0">
                               제{(ch as any).chapterNum}장
                             </span>
-                            <span className="flex-1 border-b border-dotted border-zinc-700 pb-1 text-sm text-zinc-300 group-hover:text-zinc-100 transition-colors">
+                            <span className="flex-1 border-b border-dotted border-[#8c7456]/60 pb-1 font-rpg-body text-sm text-[#5c3e21] group-hover:text-[#2b1a0e] font-medium">
                               {ch.title}
                             </span>
-                            <span className="shrink-0 text-xs text-zinc-600">{ch.items.length}편</span>
+                            <span className="shrink-0 font-rpg-body text-xs text-[#8c7456] group-hover:text-[#4c321a] italic">{ch.items.length}편</span>
                           </button>
                         )
                       })}
                     </div>
-                    <div className="mt-10 pt-6 border-t border-zinc-800">
-                      <div className="text-xs text-zinc-600">
-                        게임 콘텐츠 {games.length}종 · 총 {data?.items.length}편 수록
+                    <div className="mt-12 pt-6 border-t border-[#8c7456]/30 text-center">
+                      <div className="text-xs text-[#8c7456] italic font-medium">
+                        게임 콘텐츠 {games.length}종 수록 · 총 {data?.items.length}편의 방대한 서사 수록
                       </div>
                     </div>
                   </div>
                 ) : (
                   // 챕터 본문 페이지
                   <div>
-                    <div className="mb-1 text-xs font-medium" style={{ color: colors?.hex }}>
+                    <div className="mb-1.5 text-xs font-bold font-rpg-title text-center" style={{ color: colors?.hex || "#8c7456" }}>
                       제{(currentChapter as any).chapterNum}장
                     </div>
-                    <h2 className="mb-6 text-2xl font-bold text-zinc-100" style={{ fontFamily: "serif" }}>
+                    <h2 className="mb-2 text-2xl font-bold font-rpg-title text-[#4c321a] tracking-wide text-center">
                       {currentChapter.title}
                     </h2>
-                    <div className="mb-6 h-px bg-zinc-800" />
-                    <div className="space-y-5">
+
+                    {/* 장식적 디바이더 */}
+                    <div className="flex items-center justify-center my-6 gap-3 select-none">
+                      <div className="h-[1px] bg-gradient-to-r from-transparent via-[#8c7456]/60 to-transparent flex-1"></div>
+                      <div className="text-[#8c7456] text-xs">◆ ❖ ◆</div>
+                      <div className="h-[1px] bg-gradient-to-r from-transparent via-[#8c7456]/60 to-transparent flex-1"></div>
+                    </div>
+
+                    <div className="space-y-4">
                       {pagedItems.map((item, idx) => {
                         const globalIdx = bookPage * ITEMS_PER_PAGE + idx + 1
                         return (
@@ -869,22 +886,21 @@ export function RSSMindMap() {
                             href={item.link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="group flex gap-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 transition-all hover:border-zinc-600 hover:bg-zinc-900"
+                            className="group flex gap-4 rounded-xl border border-[#8c7456]/30 bg-[#fbf9f4]/60 p-4 transition-all hover:scale-[1.01] hover:border-[#8c7456] hover:bg-[#fbf9f4] hover:shadow-[0_4px_15px_rgba(140,116,86,0.12)]"
                           >
                             <div
-                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold"
-                              style={{ background: colors ? colors.hex + "22" : undefined, color: colors?.hex }}
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold font-rpg-title border border-[#8c7456]/40 bg-[#eadeb8]/30 text-[#8c7456] group-hover:bg-[#eadeb8]/50"
                             >
                               {globalIdx}
                             </div>
                             <div className="flex-1">
-                              <div className="text-sm font-semibold leading-snug text-zinc-200 group-hover:text-zinc-100">
+                              <div className="text-sm font-semibold leading-snug text-[#4c321a] font-rpg-body group-hover:text-[#2b1a0e]">
                                 {item.title}
                               </div>
-                              <div className="mt-1.5 flex items-center gap-2 text-xs text-zinc-600">
+                              <div className="mt-2 flex items-center gap-3 text-[11px] text-[#8c7456] font-rpg-body italic">
                                 <span>{formatDate(item.pubDate)}</span>
                                 {item.games && item.games.length > 0 && (
-                                  <span className="flex items-center gap-1 text-fuchsia-400">
+                                  <span className="flex items-center gap-1 text-fuchsia-600 font-medium">
                                     <Gamepad2 className="h-3 w-3" />
                                     {item.games[0]}
                                   </span>
@@ -901,23 +917,23 @@ export function RSSMindMap() {
               </div>
 
               {/* 페이지 푸터 - 이전/다음 */}
-              <div className="flex items-center justify-between border-t border-zinc-800 px-8 py-4">
+              <div className="flex items-center justify-between border-t border-[#8c7456]/30 px-8 py-4">
                 <button
                   onClick={goPrev}
                   disabled={isFirst}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-zinc-500 transition-all hover:bg-zinc-800 hover:text-zinc-300 disabled:opacity-30 disabled:pointer-events-none"
+                  className="flex items-center gap-1.5 border border-[#8c7456]/40 bg-[#eadeb8]/30 hover:bg-[#eadeb8]/60 text-[#5c3e21] font-rpg-title font-bold text-[11px] rounded-lg px-3 py-1.5 transition-all hover:shadow-[0_2px_8px_rgba(140,116,86,0.1)] disabled:opacity-30 disabled:pointer-events-none"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
-                  이전 페이지
+                  이전 쪽
                 </button>
-                <div className="flex gap-1.5">
+                <div className="flex gap-2">
                   {Array.from({ length: totalPages }).map((_, i) => (
                     <button
                       key={i}
                       onClick={() => setBookPage(i)}
                       className={cn(
-                        "h-1.5 rounded-full transition-all",
-                        i === bookPage ? "w-6 bg-zinc-400" : "w-1.5 bg-zinc-700 hover:bg-zinc-600"
+                        "w-2.5 h-2.5 rotate-45 transition-all",
+                        i === bookPage ? "bg-[#8c7456] scale-125" : "bg-[#8c7456]/30 hover:bg-[#8c7456]/60"
                       )}
                     />
                   ))}
@@ -925,9 +941,9 @@ export function RSSMindMap() {
                 <button
                   onClick={goNext}
                   disabled={isLast}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-zinc-500 transition-all hover:bg-zinc-800 hover:text-zinc-300 disabled:opacity-30 disabled:pointer-events-none"
+                  className="flex items-center gap-1.5 border border-[#8c7456]/40 bg-[#eadeb8]/30 hover:bg-[#eadeb8]/60 text-[#5c3e21] font-rpg-title font-bold text-[11px] rounded-lg px-3 py-1.5 transition-all hover:shadow-[0_2px_8px_rgba(140,116,86,0.1)] disabled:opacity-30 disabled:pointer-events-none"
                 >
-                  다음 페이지
+                  다음 쪽
                   <ChevronRight className="h-3.5 w-3.5" />
                 </button>
               </div>
