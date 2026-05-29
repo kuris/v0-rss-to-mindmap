@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import useSWR from "swr"
 import {
   ReactFlow,
@@ -17,7 +17,7 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { cn } from "@/lib/utils"
-import { Filter, X, ExternalLink, Loader2, RefreshCw, List, Map as MapIcon, Gamepad2, BookOpen, ChevronRight, ChevronLeft } from "lucide-react"
+import { Filter, X, ExternalLink, Loader2, RefreshCw, List, Map as MapIcon, Gamepad2, BookOpen, ChevronRight, ChevronLeft, Maximize, Minimize } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
@@ -217,6 +217,30 @@ export function RSSMindMap() {
   const [bookPage, setBookPage] = useState(0)
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch((err) => {
+        console.error("Error attempting to enable fullscreen:", err)
+      })
+    } else {
+      document.exitFullscreen()
+    }
+  }
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener("fullscreenchange", handleFullscreenChange)
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange)
+    }
+  }, [])
 
   // 카테고리별로 그룹화
   const groupedByCategory = useMemo(() => {
@@ -606,7 +630,24 @@ export function RSSMindMap() {
 
       {/* 마인드맵 뷰 */}
       {viewMode === "map" && (
-        <div className="h-[700px] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+        <div 
+          ref={containerRef}
+          className={cn(
+            "relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 transition-all",
+            isFullscreen 
+              ? "fixed inset-0 z-50 h-screen w-screen rounded-none border-none" 
+              : "h-[calc(100vh-260px)] min-h-[600px]"
+          )}
+        >
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleFullscreen}
+            className="absolute right-4 top-4 z-10 border-zinc-700 bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+            title={isFullscreen ? "전체화면 축소" : "전체화면 확대"}
+          >
+            {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+          </Button>
           <ReactFlow
             nodes={nodes}
             edges={edges}
