@@ -17,7 +17,7 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { cn } from "@/lib/utils"
-import { Filter, X, ExternalLink, Loader2, RefreshCw, List, Map as MapIcon } from "lucide-react"
+import { Filter, X, ExternalLink, Loader2, RefreshCw, List, Map as MapIcon, Gamepad2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
@@ -27,12 +27,20 @@ interface RSSItem {
   categories: string[]
   pubDate: string
   author: string
+  games?: string[]
+}
+
+interface GameInfo {
+  name: string
+  type: string
+  articles: { title: string; link: string }[]
 }
 
 interface ParsedRSS {
   channelTitle: string
   channelDescription: string
   items: RSSItem[]
+  games: GameInfo[]
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -47,8 +55,22 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string
   기타: { bg: "bg-zinc-500/20", text: "text-zinc-400", border: "border-zinc-500/50", hex: "#71717a" },
 }
 
+const GAME_COLORS: Record<string, { bg: string; text: string; border: string; hex: string }> = {
+  "핀볼 게임": { bg: "bg-pink-500/20", text: "text-pink-400", border: "border-pink-500/50", hex: "#ec4899" },
+  "테트리스": { bg: "bg-cyan-500/20", text: "text-cyan-400", border: "border-cyan-500/50", hex: "#06b6d4" },
+  "플래시 카드": { bg: "bg-violet-500/20", text: "text-violet-400", border: "border-violet-500/50", hex: "#8b5cf6" },
+  "퀴즈": { bg: "bg-orange-500/20", text: "text-orange-400", border: "border-orange-500/50", hex: "#f97316" },
+  "스네이크": { bg: "bg-green-500/20", text: "text-green-400", border: "border-green-500/50", hex: "#22c55e" },
+  "슈팅 게임": { bg: "bg-red-500/20", text: "text-red-400", border: "border-red-500/50", hex: "#ef4444" },
+  "미니 게임": { bg: "bg-teal-500/20", text: "text-teal-400", border: "border-teal-500/50", hex: "#14b8a6" },
+}
+
 function getCategoryColor(category: string) {
   return CATEGORY_COLORS[category] || CATEGORY_COLORS["기타"]
+}
+
+function getGameColor(game: string) {
+  return GAME_COLORS[game] || { bg: "bg-fuchsia-500/20", text: "text-fuchsia-400", border: "border-fuchsia-500/50", hex: "#d946ef" }
 }
 
 function formatDate(dateString: string) {
@@ -103,9 +125,59 @@ function CategoryNode({ data }: { data: { label: string; count: number; color: s
   )
 }
 
+// 게임 허브 노드 컴포넌트
+function GameHubNode({ data }: { data: { label: string; count: number } }) {
+  return (
+    <div className="rounded-2xl border-2 border-fuchsia-500/50 bg-fuchsia-500/20 px-5 py-3 shadow-lg">
+      <Handle type="target" position={Position.Top} className="opacity-0" />
+      <Handle type="target" position={Position.Bottom} className="opacity-0" />
+      <Handle type="target" position={Position.Left} className="opacity-0" />
+      <Handle type="target" position={Position.Right} className="opacity-0" />
+      <Handle type="source" position={Position.Top} className="opacity-0" />
+      <Handle type="source" position={Position.Bottom} className="opacity-0" />
+      <Handle type="source" position={Position.Left} className="opacity-0" />
+      <Handle type="source" position={Position.Right} className="opacity-0" />
+      <div className="flex items-center gap-2 text-center">
+        <Gamepad2 className="h-5 w-5 text-fuchsia-400" />
+        <div>
+          <div className="font-bold text-fuchsia-400">{data.label}</div>
+          <div className="text-xs text-zinc-500">{data.count}종류</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 게임 노드 컴포넌트
+function GameNode({ data }: { data: { name: string; type: string; articleCount: number } }) {
+  const colors = getGameColor(data.name)
+  return (
+    <div
+      className={cn(
+        "rounded-xl border-2 px-4 py-3 shadow-lg transition-transform hover:scale-105",
+        colors.bg,
+        colors.border
+      )}
+    >
+      <Handle type="target" position={Position.Top} className="opacity-0" />
+      <Handle type="target" position={Position.Bottom} className="opacity-0" />
+      <Handle type="target" position={Position.Left} className="opacity-0" />
+      <Handle type="target" position={Position.Right} className="opacity-0" />
+      <Handle type="source" position={Position.Top} className="opacity-0" />
+      <Handle type="source" position={Position.Bottom} className="opacity-0" />
+      <Handle type="source" position={Position.Left} className="opacity-0" />
+      <Handle type="source" position={Position.Right} className="opacity-0" />
+      <div className="text-center">
+        <div className={cn("font-bold", colors.text)}>{data.name}</div>
+        <div className="text-xs text-zinc-500">{data.type} / {data.articleCount}개 글</div>
+      </div>
+    </div>
+  )
+}
+
 // 아이템 노드 컴포넌트
-function ItemNode({ data }: { data: { title: string; link: string; date: string; category: string } }) {
-  const colors = getCategoryColor(data.category)
+function ItemNode({ data }: { data: { title: string; link: string; date: string; category: string; isGame?: boolean } }) {
+  const colors = data.isGame ? getGameColor(data.category) : getCategoryColor(data.category)
   return (
     <div
       className={cn(
@@ -131,13 +203,16 @@ function ItemNode({ data }: { data: { title: string; link: string; date: string;
 const nodeTypes = {
   center: CenterNode,
   category: CategoryNode,
+  gameHub: GameHubNode,
+  game: GameNode,
   item: ItemNode,
 }
 
 export function RSSMindMap() {
   const { data, error, isLoading, mutate } = useSWR<ParsedRSS>("/api/rss", fetcher)
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
-  const [viewMode, setViewMode] = useState<"map" | "list">("map")
+  const [selectedGames, setSelectedGames] = useState<Set<string>>(new Set())
+  const [viewMode, setViewMode] = useState<"map" | "list" | "games">("map")
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
@@ -187,11 +262,89 @@ export function RSSMindMap() {
       data: { label: data.channelTitle || "RSS 피드", count: totalItems },
     })
 
+    // 게임 허브 노드 (게임이 있을 경우)
+    const games = data.games || []
+    const filteredGames = selectedGames.size > 0 
+      ? games.filter(g => selectedGames.has(g.name))
+      : games
+
+    if (filteredGames.length > 0) {
+      newNodes.push({
+        id: "game-hub",
+        type: "gameHub",
+        position: { x: 0, y: -350 },
+        data: { label: "게임 분석", count: filteredGames.length },
+      })
+
+      newEdges.push({
+        id: "edge-center-games",
+        source: "center",
+        target: "game-hub",
+        style: { stroke: "#d946ef", strokeWidth: 3 },
+        animated: true,
+      })
+
+      // 게임 노드들을 게임 허브 주변에 배치
+      const gameRadius = 200
+      filteredGames.forEach((game, gameIndex) => {
+        const angle = ((gameIndex / filteredGames.length) * Math.PI) - Math.PI / 2
+        const gameX = Math.cos(angle) * gameRadius
+        const gameY = -350 + Math.sin(angle) * gameRadius - 100
+        const colors = getGameColor(game.name)
+
+        newNodes.push({
+          id: `game-${game.name}`,
+          type: "game",
+          position: { x: gameX, y: gameY },
+          data: { name: game.name, type: game.type, articleCount: game.articles.length },
+        })
+
+        newEdges.push({
+          id: `edge-hub-${game.name}`,
+          source: "game-hub",
+          target: `game-${game.name}`,
+          style: { stroke: colors.hex, strokeWidth: 2 },
+          animated: true,
+        })
+
+        // 게임 관련 글 노드
+        const maxArticles = Math.min(game.articles.length, 4)
+        game.articles.slice(0, maxArticles).forEach((article, artIndex) => {
+          const artAngle = angle + ((artIndex - (maxArticles - 1) / 2) * 0.4)
+          const artX = gameX + Math.cos(artAngle) * 150
+          const artY = gameY + Math.sin(artAngle) * 100 - 80
+
+          newNodes.push({
+            id: `game-article-${game.name}-${artIndex}`,
+            type: "item",
+            position: { x: artX, y: artY },
+            data: {
+              title: article.title,
+              link: article.link,
+              date: "",
+              category: game.name,
+              isGame: true,
+            },
+          })
+
+          newEdges.push({
+            id: `edge-game-${game.name}-${artIndex}`,
+            source: `game-${game.name}`,
+            target: `game-article-${game.name}-${artIndex}`,
+            style: { stroke: colors.hex, strokeWidth: 1, opacity: 0.5 },
+          })
+        })
+      })
+    }
+
     // 카테고리 노드들을 원형으로 배치
-    const categoryRadius = 300
+    const categoryRadius = 350
     const categoryCount = filteredCategories.length
+    const startAngle = games.length > 0 ? Math.PI * 0.15 : -Math.PI / 2
+
     filteredCategories.forEach((category, catIndex) => {
-      const angle = (catIndex / categoryCount) * 2 * Math.PI - Math.PI / 2
+      const angleRange = games.length > 0 ? Math.PI * 1.7 : Math.PI * 2
+      const angle = startAngle + (catIndex / categoryCount) * angleRange
       const catX = Math.cos(angle) * categoryRadius
       const catY = Math.sin(angle) * categoryRadius
       const items = groupedByCategory.get(category) || []
@@ -214,9 +367,9 @@ export function RSSMindMap() {
 
       // 아이템 노드들을 카테고리 주변에 배치
       const itemRadius = 150
-      const maxItems = Math.min(items.length, 8) // 최대 8개만 표시
+      const maxItems = Math.min(items.length, 6)
       items.slice(0, maxItems).forEach((item, itemIndex) => {
-        const itemAngle = angle + ((itemIndex - (maxItems - 1) / 2) * 0.3)
+        const itemAngle = angle + ((itemIndex - (maxItems - 1) / 2) * 0.25)
         const itemX = catX + Math.cos(itemAngle) * itemRadius
         const itemY = catY + Math.sin(itemAngle) * itemRadius
 
@@ -240,9 +393,8 @@ export function RSSMindMap() {
         })
       })
 
-      // 더 많은 아이템이 있으면 표시
       if (items.length > maxItems) {
-        const moreAngle = angle + ((maxItems - (maxItems - 1) / 2) * 0.3)
+        const moreAngle = angle + ((maxItems - (maxItems - 1) / 2) * 0.25)
         newNodes.push({
           id: `more-${category}`,
           type: "item",
@@ -262,7 +414,7 @@ export function RSSMindMap() {
 
     setNodes(newNodes)
     setEdges(newEdges)
-  }, [data, filteredCategories, groupedByCategory, setNodes, setEdges])
+  }, [data, filteredCategories, groupedByCategory, selectedGames, setNodes, setEdges])
 
   const toggleCategory = useCallback((category: string) => {
     setSelectedCategories((prev) => {
@@ -273,8 +425,18 @@ export function RSSMindMap() {
     })
   }, [])
 
+  const toggleGame = useCallback((game: string) => {
+    setSelectedGames((prev) => {
+      const next = new Set(prev)
+      if (next.has(game)) next.delete(game)
+      else next.add(game)
+      return next
+    })
+  }, [])
+
   const clearFilters = useCallback(() => {
     setSelectedCategories(new Set())
+    setSelectedGames(new Set())
   }, [])
 
   if (isLoading) {
@@ -301,13 +463,17 @@ export function RSSMindMap() {
     )
   }
 
+  const games = data?.games || []
+
   return (
     <div className="space-y-4">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-100">{data?.channelTitle}</h1>
-          <p className="text-sm text-zinc-500">총 {data?.items.length}개의 글</p>
+          <p className="text-sm text-zinc-500">
+            총 {data?.items.length}개의 글 / {games.length}종류의 게임
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -317,6 +483,14 @@ export function RSSMindMap() {
           >
             <MapIcon className="mr-1.5 h-4 w-4" />
             맵
+          </Button>
+          <Button
+            variant={viewMode === "games" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("games")}
+          >
+            <Gamepad2 className="mr-1.5 h-4 w-4" />
+            게임
           </Button>
           <Button
             variant={viewMode === "list" ? "default" : "outline"}
@@ -334,15 +508,15 @@ export function RSSMindMap() {
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-medium text-zinc-400">
             <Filter className="h-4 w-4" />
-            <span>카테고리 필터</span>
-            {selectedCategories.size > 0 && (
+            <span>필터</span>
+            {(selectedCategories.size > 0 || selectedGames.size > 0) && (
               <Badge variant="secondary" className="bg-zinc-800 text-zinc-300">
-                {selectedCategories.size}개 선택
+                {selectedCategories.size + selectedGames.size}개 선택
               </Badge>
             )}
           </div>
           <div className="flex items-center gap-2">
-            {selectedCategories.size > 0 && (
+            {(selectedCategories.size > 0 || selectedGames.size > 0) && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs text-zinc-500">
                 <X className="mr-1 h-3 w-3" />
                 초기화
@@ -355,36 +529,74 @@ export function RSSMindMap() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {allCategories.map((category) => {
-            const colors = getCategoryColor(category)
-            const isSelected = selectedCategories.has(category)
-            const count = groupedByCategory.get(category)?.length || 0
+        {/* 게임 필터 */}
+        {games.length > 0 && (
+          <div className="mb-3">
+            <div className="mb-2 flex items-center gap-2 text-xs font-medium text-fuchsia-400">
+              <Gamepad2 className="h-3.5 w-3.5" />
+              게임 종류
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {games.map((game) => {
+                const colors = getGameColor(game.name)
+                const isSelected = selectedGames.has(game.name)
 
-            return (
-              <button
-                key={category}
-                onClick={() => toggleCategory(category)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
-                  isSelected
-                    ? cn(colors.bg, colors.text, colors.border, "ring-2 ring-white/20")
-                    : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600"
-                )}
-              >
-                {category}
-                <span className={cn("rounded-full px-1.5 py-0.5 text-xs", isSelected ? "bg-white/10" : "bg-zinc-700")}>
-                  {count}
-                </span>
-              </button>
-            )
-          })}
+                return (
+                  <button
+                    key={game.name}
+                    onClick={() => toggleGame(game.name)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
+                      isSelected
+                        ? cn(colors.bg, colors.text, colors.border, "ring-2 ring-white/20")
+                        : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600"
+                    )}
+                  >
+                    {game.name}
+                    <span className={cn("rounded-full px-1.5 py-0.5 text-xs", isSelected ? "bg-white/10" : "bg-zinc-700")}>
+                      {game.articles.length}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 카테고리 필터 */}
+        <div>
+          <div className="mb-2 text-xs font-medium text-zinc-500">카테고리</div>
+          <div className="flex flex-wrap gap-2">
+            {allCategories.map((category) => {
+              const colors = getCategoryColor(category)
+              const isSelected = selectedCategories.has(category)
+              const count = groupedByCategory.get(category)?.length || 0
+
+              return (
+                <button
+                  key={category}
+                  onClick={() => toggleCategory(category)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
+                    isSelected
+                      ? cn(colors.bg, colors.text, colors.border, "ring-2 ring-white/20")
+                      : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600"
+                  )}
+                >
+                  {category}
+                  <span className={cn("rounded-full px-1.5 py-0.5 text-xs", isSelected ? "bg-white/10" : "bg-zinc-700")}>
+                    {count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
       {/* 마인드맵 뷰 */}
-      {viewMode === "map" ? (
-        <div className="h-[600px] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+      {viewMode === "map" && (
+        <div className="h-[700px] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -392,16 +604,21 @@ export function RSSMindMap() {
             onEdgesChange={onEdgesChange}
             nodeTypes={nodeTypes}
             fitView
-            fitViewOptions={{ padding: 0.2 }}
+            fitViewOptions={{ padding: 0.1 }}
             minZoom={0.1}
             maxZoom={2}
-            defaultViewport={{ x: 0, y: 0, zoom: 0.6 }}
+            defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
           >
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#27272a" />
             <Controls className="rounded-lg border border-zinc-700 bg-zinc-900" />
             <MiniMap
               nodeColor={(node) => {
                 if (node.type === "center") return "#3f3f46"
+                if (node.type === "gameHub") return "#d946ef"
+                if (node.type === "game") {
+                  const name = node.data?.name as string
+                  return getGameColor(name).hex
+                }
                 if (node.type === "category") {
                   const label = node.data?.label as string
                   return getCategoryColor(label).hex
@@ -412,8 +629,52 @@ export function RSSMindMap() {
             />
           </ReactFlow>
         </div>
-      ) : (
-        /* 리스트 뷰 */
+      )}
+
+      {/* 게임 뷰 */}
+      {viewMode === "games" && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {games.map((game) => {
+            const colors = getGameColor(game.name)
+            return (
+              <div key={game.name} className={cn("rounded-xl border-2 p-4", colors.bg, colors.border)}>
+                <div className="mb-3 flex items-center gap-2">
+                  <Gamepad2 className={cn("h-5 w-5", colors.text)} />
+                  <div>
+                    <h3 className={cn("font-bold", colors.text)}>{game.name}</h3>
+                    <p className="text-xs text-zinc-500">{game.type} / {game.articles.length}개의 글</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {game.articles.map((article, idx) => (
+                    <a
+                      key={idx}
+                      href={article.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-lg border border-zinc-700/50 bg-zinc-900/50 p-2 transition-all hover:bg-zinc-800/50"
+                    >
+                      <div className="line-clamp-2 text-sm font-medium text-zinc-200">{article.title}</div>
+                      <div className="mt-1 flex items-center gap-1 text-xs text-zinc-500">
+                        <ExternalLink className="h-3 w-3" />
+                        바로가기
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+          {games.length === 0 && (
+            <div className="col-span-full py-12 text-center text-zinc-500">
+              게임이 포함된 글이 없습니다.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 리스트 뷰 */}
+      {viewMode === "list" && (
         <div className="space-y-4">
           {filteredCategories.map((category) => {
             const items = groupedByCategory.get(category) || []
@@ -439,6 +700,12 @@ export function RSSMindMap() {
                       <div className="line-clamp-2 text-sm font-medium text-zinc-200">{item.title}</div>
                       <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
                         <span>{formatDate(item.pubDate)}</span>
+                        {item.games && item.games.length > 0 && (
+                          <Badge className="bg-fuchsia-500/20 text-fuchsia-400 text-[10px]">
+                            <Gamepad2 className="mr-1 h-2.5 w-2.5" />
+                            {item.games[0]}
+                          </Badge>
+                        )}
                         <ExternalLink className="h-3 w-3" />
                       </div>
                     </a>
