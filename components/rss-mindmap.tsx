@@ -17,7 +17,7 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { cn } from "@/lib/utils"
-import { Filter, X, ExternalLink, Loader2, RefreshCw, List, Map as MapIcon, Gamepad2 } from "lucide-react"
+import { Filter, X, ExternalLink, Loader2, RefreshCw, List, Map as MapIcon, Gamepad2, BookOpen, ChevronRight, ChevronLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
@@ -212,7 +212,9 @@ export function RSSMindMap() {
   const { data, error, isLoading, mutate } = useSWR<ParsedRSS>("/api/rss", fetcher)
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
   const [selectedGames, setSelectedGames] = useState<Set<string>>(new Set())
-  const [viewMode, setViewMode] = useState<"map" | "list" | "games">("map")
+  const [viewMode, setViewMode] = useState<"map" | "list" | "games" | "book">("map")
+  const [bookChapter, setBookChapter] = useState(0)
+  const [bookPage, setBookPage] = useState(0)
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
@@ -493,6 +495,14 @@ export function RSSMindMap() {
             게임
           </Button>
           <Button
+            variant={viewMode === "book" ? "default" : "outline"}
+            size="sm"
+            onClick={() => { setViewMode("book"); setBookChapter(0); setBookPage(0) }}
+          >
+            <BookOpen className="mr-1.5 h-4 w-4" />
+            도서
+          </Button>
+          <Button
             variant={viewMode === "list" ? "default" : "outline"}
             size="sm"
             onClick={() => setViewMode("list")}
@@ -672,6 +682,218 @@ export function RSSMindMap() {
           )}
         </div>
       )}
+
+      {/* 도서 모드 */}
+      {viewMode === "book" && (() => {
+        const chapters = [
+          { id: "toc", title: "목차", items: [] as RSSItem[], isToC: true },
+          ...filteredCategories.map((cat, i) => ({
+            id: cat,
+            title: cat,
+            chapterNum: i + 1,
+            items: groupedByCategory.get(cat) || [],
+            isToC: false,
+          })),
+        ]
+        const currentChapter = chapters[bookChapter]
+        const ITEMS_PER_PAGE = 5
+        const currentItems = currentChapter.isToC ? [] : currentChapter.items
+        const totalPages = currentChapter.isToC ? 1 : Math.ceil(currentItems.length / ITEMS_PER_PAGE)
+        const pagedItems = currentItems.slice(bookPage * ITEMS_PER_PAGE, (bookPage + 1) * ITEMS_PER_PAGE)
+        const colors = currentChapter.isToC ? null : getCategoryColor(currentChapter.id)
+
+        const goPrev = () => {
+          if (bookPage > 0) {
+            setBookPage(bookPage - 1)
+          } else if (bookChapter > 0) {
+            const prevChapter = chapters[bookChapter - 1]
+            const prevTotal = prevChapter.isToC ? 1 : Math.ceil((groupedByCategory.get(prevChapter.id)?.length || 0) / ITEMS_PER_PAGE)
+            setBookChapter(bookChapter - 1)
+            setBookPage(prevTotal - 1)
+          }
+        }
+        const goNext = () => {
+          if (bookPage < totalPages - 1) {
+            setBookPage(bookPage + 1)
+          } else if (bookChapter < chapters.length - 1) {
+            setBookChapter(bookChapter + 1)
+            setBookPage(0)
+          }
+        }
+        const isFirst = bookChapter === 0 && bookPage === 0
+        const isLast = bookChapter === chapters.length - 1 && bookPage === totalPages - 1
+
+        return (
+          <div className="flex gap-0 overflow-hidden rounded-2xl border border-zinc-700 shadow-2xl shadow-black/60" style={{ minHeight: 600 }}>
+            {/* 목차 사이드바 */}
+            <div className="w-52 shrink-0 border-r border-zinc-700 bg-zinc-900 flex flex-col">
+              <div className="border-b border-zinc-700 px-4 py-4">
+                <div className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">목차</div>
+                <div className="text-sm font-bold text-zinc-200 leading-snug line-clamp-2">{data?.channelTitle}</div>
+              </div>
+              <div className="flex-1 overflow-y-auto py-2">
+                {chapters.map((ch, idx) => {
+                  const active = bookChapter === idx
+                  const chColors = ch.isToC ? null : getCategoryColor(ch.id)
+                  return (
+                    <button
+                      key={ch.id}
+                      onClick={() => { setBookChapter(idx); setBookPage(0) }}
+                      className={cn(
+                        "w-full text-left px-4 py-2.5 text-xs transition-all flex items-start gap-2",
+                        active
+                          ? "bg-zinc-800 font-semibold text-zinc-100"
+                          : "text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300"
+                      )}
+                    >
+                      {!ch.isToC && (
+                        <span
+                          className="mt-0.5 shrink-0 rounded px-1 py-0.5 text-[9px] font-bold"
+                          style={{ background: chColors ? chColors.hex + "33" : undefined, color: chColors?.hex }}
+                        >
+                          {(ch as any).chapterNum}장
+                        </span>
+                      )}
+                      <span className="leading-snug">{ch.title}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="border-t border-zinc-700 px-4 py-3 text-[10px] text-zinc-600">
+                총 {data?.items.length}편 수록
+              </div>
+            </div>
+
+            {/* 본문 페이지 */}
+            <div className="flex flex-1 flex-col bg-zinc-950">
+              {/* 페이지 헤더 */}
+              <div className="flex items-center justify-between border-b border-zinc-800 px-8 py-4">
+                <div className="text-xs text-zinc-600 uppercase tracking-widest">
+                  {currentChapter.isToC ? "목차" : `제${(currentChapter as any).chapterNum}장`}
+                </div>
+                <div className="text-xs text-zinc-600">
+                  {currentChapter.isToC ? "" : `${bookPage + 1} / ${totalPages} 페이지`}
+                </div>
+              </div>
+
+              {/* 페이지 본문 */}
+              <div className="flex-1 overflow-y-auto px-10 py-8">
+                {currentChapter.isToC ? (
+                  // 목차 페이지
+                  <div>
+                    <h1 className="mb-2 text-3xl font-bold text-zinc-100" style={{ fontFamily: "serif" }}>목차</h1>
+                    <div className="mb-8 h-px bg-zinc-700" />
+                    <div className="space-y-3">
+                      {chapters.filter(ch => !ch.isToC).map((ch) => {
+                        const chColors = getCategoryColor(ch.id)
+                        return (
+                          <button
+                            key={ch.id}
+                            onClick={() => { setBookChapter(chapters.indexOf(ch)); setBookPage(0) }}
+                            className="flex w-full items-baseline gap-3 text-left group"
+                          >
+                            <span className="text-sm font-bold shrink-0" style={{ color: chColors.hex }}>
+                              제{(ch as any).chapterNum}장
+                            </span>
+                            <span className="flex-1 border-b border-dotted border-zinc-700 pb-1 text-sm text-zinc-300 group-hover:text-zinc-100 transition-colors">
+                              {ch.title}
+                            </span>
+                            <span className="shrink-0 text-xs text-zinc-600">{ch.items.length}편</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div className="mt-10 pt-6 border-t border-zinc-800">
+                      <div className="text-xs text-zinc-600">
+                        게임 콘텐츠 {games.length}종 · 총 {data?.items.length}편 수록
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // 챕터 본문 페이지
+                  <div>
+                    <div className="mb-1 text-xs font-medium" style={{ color: colors?.hex }}>
+                      제{(currentChapter as any).chapterNum}장
+                    </div>
+                    <h2 className="mb-6 text-2xl font-bold text-zinc-100" style={{ fontFamily: "serif" }}>
+                      {currentChapter.title}
+                    </h2>
+                    <div className="mb-6 h-px bg-zinc-800" />
+                    <div className="space-y-5">
+                      {pagedItems.map((item, idx) => {
+                        const globalIdx = bookPage * ITEMS_PER_PAGE + idx + 1
+                        return (
+                          <a
+                            key={item.link}
+                            href={item.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group flex gap-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 transition-all hover:border-zinc-600 hover:bg-zinc-900"
+                          >
+                            <div
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold"
+                              style={{ background: colors ? colors.hex + "22" : undefined, color: colors?.hex }}
+                            >
+                              {globalIdx}
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-sm font-semibold leading-snug text-zinc-200 group-hover:text-zinc-100">
+                                {item.title}
+                              </div>
+                              <div className="mt-1.5 flex items-center gap-2 text-xs text-zinc-600">
+                                <span>{formatDate(item.pubDate)}</span>
+                                {item.games && item.games.length > 0 && (
+                                  <span className="flex items-center gap-1 text-fuchsia-400">
+                                    <Gamepad2 className="h-3 w-3" />
+                                    {item.games[0]}
+                                  </span>
+                                )}
+                                <ExternalLink className="ml-auto h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+                              </div>
+                            </div>
+                          </a>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 페이지 푸터 - 이전/다음 */}
+              <div className="flex items-center justify-between border-t border-zinc-800 px-8 py-4">
+                <button
+                  onClick={goPrev}
+                  disabled={isFirst}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-zinc-500 transition-all hover:bg-zinc-800 hover:text-zinc-300 disabled:opacity-30 disabled:pointer-events-none"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  이전 페이지
+                </button>
+                <div className="flex gap-1.5">
+                  {Array.from({ length: totalPages }).map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setBookPage(i)}
+                      className={cn(
+                        "h-1.5 rounded-full transition-all",
+                        i === bookPage ? "w-6 bg-zinc-400" : "w-1.5 bg-zinc-700 hover:bg-zinc-600"
+                      )}
+                    />
+                  ))}
+                </div>
+                <button
+                  onClick={goNext}
+                  disabled={isLast}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-zinc-500 transition-all hover:bg-zinc-800 hover:text-zinc-300 disabled:opacity-30 disabled:pointer-events-none"
+                >
+                  다음 페이지
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 리스트 뷰 */}
       {viewMode === "list" && (
