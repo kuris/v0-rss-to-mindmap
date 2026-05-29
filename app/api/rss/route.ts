@@ -46,15 +46,15 @@ function parseXML(xml: string): ParsedRSS {
   const itemRegex = /<item>([\s\S]*?)<\/item>/g
   let match
 
-  // 게임 패턴 정의
+  // 게임 패턴 정의 - g 플래그를 제거하여 루프 내 lastIndex 누적 매칭 오류 원천 차단!
   const gamePatterns = [
-    { pattern: /핀볼|pinball/gi, name: "핀볼 게임", type: "아케이드" },
-    { pattern: /테트리스|tetris/gi, name: "테트리스", type: "퍼즐" },
-    { pattern: /플래시\s*카드|flash\s*card|flashcard/gi, name: "플래시 카드", type: "학습" },
-    { pattern: /퀴즈|quiz/gi, name: "퀴즈", type: "학습" },
-    { pattern: /스네이크|snake/gi, name: "스네이크", type: "아케이드" },
-    { pattern: /슈팅|shooting|타겟/gi, name: "슈팅 게임", type: "액션" },
-    { pattern: /미니\s*게임|mini\s*game/gi, name: "미니 게임", type: "기타" },
+    { pattern: /핀볼|pinball/i, name: "핀볼 게임", type: "아케이드" },
+    { pattern: /테트리스|tetris/i, name: "테트리스", type: "퍼즐" },
+    { pattern: /플래시\s*카드|flash\s*card|flashcard/i, name: "플래시 카드", type: "학습" },
+    { pattern: /퀴즈|quiz|판독기/i, name: "퀴즈", type: "학습" },
+    { pattern: /스네이크|snake/i, name: "스네이크", type: "아케이드" },
+    { pattern: /슈팅|shooting/i, name: "슈팅 게임", type: "액션" },
+    { pattern: /미니\s*게임|mini\s*game|광클|클릭\s*게임|토익\s*게임/i, name: "미니 게임", type: "기타" },
   ]
 
   const gamesMap = new Map<string, GameInfo>()
@@ -82,9 +82,9 @@ function parseXML(xml: string): ParsedRSS {
     const link = linkMatch ? linkMatch[1] : ""
     const description = descMatch ? decodeHtmlEntities(descMatch[1]) : ""
 
-    // 게임 탐지
+    // 게임 탐지 - 사이드바/푸터가 노이즈로 섞이는 것을 방지하기 위해 TITLE에 대해서만 탐지 수행!
     const detectedGames: string[] = []
-    const fullText = title + " " + description
+    const fullText = title
 
     for (const { pattern, name, type } of gamePatterns) {
       if (pattern.test(fullText)) {
@@ -197,15 +197,15 @@ export async function GET() {
       gamesMap.set(g.name, { ...g, articles: [...g.articles] })
     })
 
-    // Game patterns for scraped posts
+    // Game patterns for scraped posts - g 플래그를 제거하여 루프 내 lastIndex 누적 매칭 오류 원천 차단!
     const gamePatterns = [
-      { pattern: /핀볼|pinball/gi, name: "핀볼 게임", type: "아케이드" },
-      { pattern: /테트리스|tetris/gi, name: "테트리스", type: "퍼즐" },
-      { pattern: /플래시\s*카드|flash\s*card|flashcard/gi, name: "플래시 카드", type: "학습" },
-      { pattern: /퀴즈|quiz/gi, name: "퀴즈", type: "학습" },
-      { pattern: /스네이크|snake/gi, name: "스네이크", type: "아케이드" },
-      { pattern: /슈팅|shooting|타겟/gi, name: "슈팅 게임", type: "액션" },
-      { pattern: /미니\s*게임|mini\s*game/gi, name: "미니 게임", type: "기타" },
+      { pattern: /핀볼|pinball/i, name: "핀볼 게임", type: "아케이드" },
+      { pattern: /테트리스|tetris/i, name: "테트리스", type: "퍼즐" },
+      { pattern: /플래시\s*카드|flash\s*card|flashcard/i, name: "플래시 카드", type: "학습" },
+      { pattern: /퀴즈|quiz|판독기/i, name: "퀴즈", type: "학습" },
+      { pattern: /스네이크|snake/i, name: "스네이크", type: "아케이드" },
+      { pattern: /슈팅|shooting/i, name: "슈팅 게임", type: "액션" },
+      { pattern: /미니\s*게임|mini\s*game|광클|클릭\s*게임|토익\s*게임/i, name: "미니 게임", type: "기타" },
     ]
 
     const uniqueScraped = new Map<string, typeof scrapedPosts[0]>()
@@ -220,9 +220,7 @@ export async function GET() {
         // Detect games on older post titles
         const detectedGames: string[] = []
         for (const { pattern, name, type } of gamePatterns) {
-          if (pattern.exec(post.title)) {
-            // reset regex lastIndex since it's a global regex
-            pattern.lastIndex = 0;
+          if (pattern.test(post.title)) {
             detectedGames.push(name)
             if (!gamesMap.has(name)) {
               gamesMap.set(name, { name, type, articles: [] })
