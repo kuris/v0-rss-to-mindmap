@@ -17,7 +17,7 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { cn } from "@/lib/utils"
-import { Filter, X, ExternalLink, Loader2, RefreshCw, List, Map as MapIcon, Gamepad2, BookOpen, ChevronRight, ChevronLeft, Maximize, Minimize } from "lucide-react"
+import { Filter, X, ExternalLink, Loader2, RefreshCw, List, Map as MapIcon, Gamepad2, BookOpen, ChevronRight, ChevronLeft, Maximize, Minimize, Sword, Shield, Heart, Trophy, Sparkles, Coins } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
@@ -212,10 +212,28 @@ export function RSSMindMap() {
   const { data, error, isLoading, mutate } = useSWR<ParsedRSS>("/api/rss", fetcher)
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
   const [selectedGames, setSelectedGames] = useState<Set<string>>(new Set())
-  const [viewMode, setViewMode] = useState<"map" | "list" | "games" | "book">("map")
+  const [viewMode, setViewMode] = useState<"map" | "list" | "games" | "book" | "dungeon">("map")
   const [bookChapter, setBookChapter] = useState(0)
   const [bookPage, setBookPage] = useState(0)
   const [bookTheme, setBookTheme] = useState<"parchment" | "modern">("parchment")
+
+  // --- 로그라이크 던전 크롤러 상태 ---
+  const [playerHp, setPlayerHp] = useState(100)
+  const [playerMaxHp, setPlayerMaxHp] = useState(100)
+  const [playerLevel, setPlayerLevel] = useState(1)
+  const [playerXp, setPlayerXp] = useState(0)
+  const [playerGold, setPlayerGold] = useState(50) // 시작시 50골드 지급
+  const [playerPotions, setPlayerPotions] = useState(1) // 시작시 1포션 지급
+  const [dungeonFloor, setDungeonFloor] = useState(0)
+  const [dungeonRoom, setDungeonRoom] = useState(0)
+  const [dungeonState, setDungeonState] = useState<"start" | "explore" | "battle" | "gameover" | "win">("start")
+  const [monsterHp, setMonsterHp] = useState(0)
+  const [monsterMaxHp, setMonsterMaxHp] = useState(0)
+  const [currentMonsterName, setCurrentMonsterName] = useState("")
+  const [currentMonsterDesc, setCurrentMonsterDesc] = useState("")
+  const [currentQuiz, setCurrentQuiz] = useState<{ question: string; options: string[]; correctIdx: number } | null>(null)
+  const [battleLogs, setBattleLogs] = useState<string[]>([])
+
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
@@ -269,6 +287,209 @@ export function RSSMindMap() {
     if (selectedCategories.size === 0) return allCategories
     return allCategories.filter((cat) => selectedCategories.has(cat))
   }, [allCategories, selectedCategories])
+
+  // --- 로그라이크 던전 크롤러 로직 ---
+  const dungeonFloors = useMemo(() => {
+    return filteredCategories.filter(cat => cat !== "기타" && cat !== "목차");
+  }, [filteredCategories]);
+
+  const currentFloorItems = useMemo(() => {
+    const floorCat = dungeonFloors[dungeonFloor];
+    if (!floorCat) return [];
+    return groupedByCategory.get(floorCat) || [];
+  }, [dungeonFloors, dungeonFloor, groupedByCategory]);
+
+  const generateQuiz = useCallback((item: RSSItem, categoryItems: RSSItem[]) => {
+    const title = item.title;
+    // 제목에서 퀴즈 단어로 삼을 후보 단어를 추출합니다.
+    const words = title.split(/\s+/).map(w => w.replace(/[\[\]\(\)\{\}"'🚀🎮🔥💻💡!?,.-]/g, "").trim()).filter(w => w.length >= 2);
+    
+    // 가장 적절한 단어 선택 (영어 단어나 한글 명사구)
+    let targetWord = words.find(w => /^[a-zA-Z]{3,12}$/.test(w)) || words.find(w => w.length >= 3 && w.length <= 6) || words[Math.floor(words.length / 2)] || "학습";
+    
+    // 제목에서 해당 단어를 ____로 치환합니다.
+    const escapedTarget = targetWord.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(escapedTarget, 'g');
+    const question = title.replace(regex, " ____ ");
+    
+    // 오답 리스트를 추출합니다. 다른 글들의 제목에서 단어를 가져옵니다.
+    const distractors = new Set<string>();
+    categoryItems.forEach(otherItem => {
+      if (otherItem.title !== title) {
+        otherItem.title.split(/\s+/).forEach(w => {
+          const cleanW = w.replace(/[\[\]\(\)\{\}"'🚀🎮🔥💻💡!?,.-]/g, "").trim();
+          if (cleanW.length >= 2 && cleanW !== targetWord && cleanW.length <= 6) {
+            distractors.add(cleanW);
+          }
+        });
+      }
+    });
+    
+    const defaultDistractors = ["영어", "단어", "상식", "게임", "재테크", "공부", "분석", "비밀", "교실", "대도사"];
+    const distractorArray = Array.from(distractors);
+    while (distractorArray.length < 3) {
+      const randW = defaultDistractors[Math.floor(Math.random() * defaultDistractors.length)];
+      if (!distractorArray.includes(randW) && randW !== targetWord) {
+        distractorArray.push(randW);
+      }
+    }
+    
+    const selectedDistractors: string[] = [];
+    while (selectedDistractors.length < 3 && distractorArray.length > 0) {
+      const idx = Math.floor(Math.random() * distractorArray.length);
+      selectedDistractors.push(distractorArray.splice(idx, 1)[0]);
+    }
+    
+    const options = [targetWord, ...selectedDistractors];
+    // Shuffle options
+    for (let i = options.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [options[i], options[j]] = [options[j], options[i]];
+    }
+    
+    const correctIdx = options.indexOf(targetWord);
+    
+    return {
+      question,
+      options,
+      correctIdx
+    };
+  }, []);
+
+  const startDungeon = () => {
+    setPlayerHp(100);
+    setPlayerMaxHp(100);
+    setPlayerLevel(1);
+    setPlayerXp(0);
+    setPlayerGold(50);
+    setPlayerPotions(1);
+    setDungeonFloor(0);
+    setDungeonRoom(0);
+    setDungeonState("explore");
+    setBattleLogs(["⚔️ 숲속 깊은 모험의 던전 입구에 입장하셨습니다!"]);
+  };
+
+  const enterBattle = () => {
+    const item = currentFloorItems[dungeonRoom];
+    if (!item) return;
+
+    const maxHp = 30 + dungeonFloor * 20;
+    setMonsterHp(maxHp);
+    setMonsterMaxHp(maxHp);
+    setCurrentMonsterName(item.title);
+    setCurrentMonsterDesc(item.description || "이 방을 지키고 있는 사악한 괴물입니다.");
+    
+    const quiz = generateQuiz(item, currentFloorItems);
+    setCurrentQuiz(quiz);
+    setDungeonState("battle");
+    
+    setBattleLogs(prev => [
+      ...prev,
+      `😈 [몬스터 조우] "${item.title}"가(이) 출현했습니다! (HP: ${maxHp})`
+    ]);
+  };
+
+  const handleAttack = (selectedIdx: number) => {
+    if (!currentQuiz) return;
+    
+    const logs = [...battleLogs];
+    if (selectedIdx === currentQuiz.correctIdx) {
+      // 정답! 플레이어가 공격합니다.
+      const damage = Math.floor(Math.random() * 15) + 15 + playerLevel * 5; // 15~30 + 레벨 보너스
+      const newHp = Math.max(0, monsterHp - damage);
+      setMonsterHp(newHp);
+      
+      logs.push(`🎯 정답입니다! 몬스터에게 ${damage}의 치명타를 입혔습니다!`);
+      
+      if (newHp === 0) {
+        // 몬스터 처치!
+        const xpEarned = 15 + dungeonFloor * 10;
+        const goldEarned = 15 + dungeonFloor * 10;
+        const nextXp = playerXp + xpEarned;
+        
+        logs.push(`🏆 승리! 몬스터를 물리쳤습니다! (+${xpEarned} XP / +${goldEarned} Gold)`);
+        
+        let nextLevel = playerLevel;
+        let nextMaxHp = playerMaxHp;
+        let nextHp = playerHp;
+        if (nextXp >= playerLevel * 100) {
+          nextLevel += 1;
+          nextMaxHp += 20;
+          nextHp = nextMaxHp; // 완치
+          logs.push(`✨ LEVEL UP! 플레이어가 Level ${nextLevel}로 전직했습니다! (최대 HP 증가 & HP 완치!)`);
+          setPlayerXp(nextXp - playerLevel * 100);
+        } else {
+          setPlayerXp(nextXp);
+        }
+        
+        setPlayerLevel(nextLevel);
+        setPlayerMaxHp(nextMaxHp);
+        setPlayerHp(nextHp);
+        setPlayerGold(prev => prev + goldEarned);
+        
+        // 다음 방 혹은 다음 층 체크
+        const isFloorCleared = dungeonRoom >= currentFloorItems.length - 1;
+        if (isFloorCleared) {
+          const isAllCleared = dungeonFloor >= dungeonFloors.length - 1;
+          if (isAllCleared) {
+            setDungeonState("win");
+            logs.push("👑 대축하! 모든 던전을 돌파하고 '블로그의 군주'로 거듭났습니다!");
+          } else {
+            // 다음 층으로 이동
+            setDungeonFloor(prev => prev + 1);
+            setDungeonRoom(0);
+            setDungeonState("explore");
+            logs.push(`🚀 제${dungeonFloor + 2}층 [${dungeonFloors[dungeonFloor + 1]}] 던전에 진입하셨습니다!`);
+          }
+        } else {
+          setDungeonRoom(prev => prev + 1);
+          setDungeonState("explore");
+        }
+      }
+    } else {
+      // 오답! 몬스터가 플레이어를 공격합니다.
+      const monsterDamage = Math.floor(Math.random() * 8) + 8 + dungeonFloor * 4; // 8~16 + 층 보너스
+      const newHp = Math.max(0, playerHp - monsterDamage);
+      setPlayerHp(newHp);
+      
+      logs.push(`❌ 오답입니다! 정답은 [${currentQuiz.options[currentQuiz.correctIdx]}] 이었습니다.`);
+      logs.push(`💥 몬스터가 분노하여 반격했습니다! 당신은 ${monsterDamage}의 피해를 입었습니다.`);
+      
+      if (newHp === 0) {
+        setDungeonState("gameover");
+        logs.push("💀 당신은 쓰러졌습니다... 던전 탐험 실패!");
+      } else {
+        // 퀴즈 갱신하여 계속 싸우게 함
+        const item = currentFloorItems[dungeonRoom];
+        if (item) {
+          const nextQuiz = generateQuiz(item, currentFloorItems);
+          setCurrentQuiz(nextQuiz);
+        }
+      }
+    }
+    setBattleLogs(logs);
+  };
+
+  const usePotion = () => {
+    if (playerPotions <= 0) return;
+    if (playerHp >= playerMaxHp) {
+      setBattleLogs(prev => [...prev, "❤️ 이미 체력이 가득 차 있습니다!"]);
+      return;
+    }
+    setPlayerPotions(prev => prev - 1);
+    setPlayerHp(prev => Math.min(playerMaxHp, prev + 50));
+    setBattleLogs(prev => [...prev, "🧪 포션을 마셔 체력을 50 회복했습니다!"]);
+  };
+
+  const buyPotion = () => {
+    if (playerGold < 30) {
+      setBattleLogs(prev => [...prev, "💰 골드가 부족합니다! (포션 가격: 30 Gold)"]);
+      return;
+    }
+    setPlayerGold(prev => prev - 30);
+    setPlayerPotions(prev => prev + 1);
+    setBattleLogs(prev => [...prev, "🧪 상점에서 포션을 1개 구매했습니다. (-30 Gold)"]);
+  };
 
   // 노드와 엣지 생성
   useEffect(() => {
@@ -526,6 +747,19 @@ export function RSSMindMap() {
           >
             <BookOpen className="mr-1.5 h-4 w-4" />
             도서
+          </Button>
+          <Button
+            variant={viewMode === "dungeon" ? "default" : "outline"}
+            size="sm"
+            onClick={() => { setViewMode("dungeon"); startDungeon(); }}
+            className={cn(
+              viewMode === "dungeon" 
+                ? "bg-rose-600 hover:bg-rose-700 text-white shadow-[0_0_10px_rgba(225,29,72,0.4)] animate-pulse" 
+                : "border-rose-950 text-rose-400 hover:bg-rose-950/20"
+            )}
+          >
+            <Sword className="mr-1.5 h-4 w-4" />
+            던전
           </Button>
           <Button
             variant={viewMode === "list" ? "default" : "outline"}
@@ -1205,6 +1439,249 @@ export function RSSMindMap() {
             </div>
           </div>
         )
+      })()}
+
+      {/* 로그라이크 던전 크롤러 뷰 */}
+      {viewMode === "dungeon" && (() => {
+        const floorName = dungeonFloors[dungeonFloor] || "기타";
+        const currentItem = currentFloorItems[dungeonRoom];
+        
+        return (
+          <div className="relative rounded-2xl border border-zinc-805 bg-[#0c0c10]/95 p-6 shadow-2xl text-zinc-100 font-sans min-h-[500px] flex flex-col md:flex-row gap-6 overflow-hidden">
+            {/* 배경 성문 장식 그래픽 */}
+            <div className="absolute inset-0 pointer-events-none opacity-5 bg-[radial-gradient(circle_at_50%_120%,rgba(244,63,94,0.15),transparent_60%)]" />
+
+            {/* 좌측 패널: 플레이어 스텟 및 물약 상점 */}
+            <div className="w-full md:w-72 shrink-0 border border-zinc-800/80 bg-zinc-950/80 p-5 rounded-xl flex flex-col gap-4 relative z-10 shadow-lg">
+              <div className="flex items-center gap-2.5 pb-3 border-b border-zinc-800">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-600/10 text-rose-500 border border-rose-500/20">
+                  <Sword className="h-5 w-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-zinc-100 text-sm">모험가 정보</h3>
+                  <p className="text-[10px] text-zinc-400">Level {playerLevel} 전사</p>
+                </div>
+              </div>
+
+              {/* 플레이어 HP Bar */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="text-zinc-400 flex items-center gap-1"><Heart className="h-3.5 w-3.5 text-rose-500 fill-rose-500" /> HP</span>
+                  <span className="text-rose-400">{playerHp} / {playerMaxHp}</span>
+                </div>
+                <div className="h-2.5 w-full bg-zinc-900 border border-zinc-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-rose-600 to-rose-500 transition-all duration-305 shadow-[0_0_8px_rgba(244,63,94,0.4)]"
+                    style={{ width: `${(playerHp / playerMaxHp) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* 플레이어 XP Bar */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="text-zinc-400 flex items-center gap-1"><Sparkles className="h-3.5 w-3.5 text-indigo-400" /> XP</span>
+                  <span className="text-indigo-400">{playerXp} / {playerLevel * 100}</span>
+                </div>
+                <div className="h-2.5 w-full bg-zinc-900 border border-zinc-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-indigo-600 to-indigo-500 transition-all duration-305"
+                    style={{ width: `${(playerXp / (playerLevel * 100)) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* 보유 골드 & 포션 */}
+              <div className="grid grid-cols-2 gap-3 py-2 border-y border-zinc-900 my-2">
+                <div className="flex flex-col items-center p-2 rounded-lg bg-zinc-900/50 border border-zinc-900">
+                  <Coins className="h-4 w-4 text-amber-400 mb-1" />
+                  <span className="text-[10px] text-zinc-500 font-semibold">GOLD</span>
+                  <span className="text-sm font-bold text-amber-400">{playerGold} G</span>
+                </div>
+                <div className="flex flex-col items-center p-2 rounded-lg bg-zinc-900/50 border border-zinc-900">
+                  <Heart className="h-4 w-4 text-emerald-400 mb-1 fill-emerald-400/20" />
+                  <span className="text-[10px] text-zinc-500 font-semibold">🧪 POTIONS</span>
+                  <span className="text-sm font-bold text-emerald-400">{playerPotions}개</span>
+                </div>
+              </div>
+
+              {/* 상점 / 물약 복용 행동단 */}
+              <div className="space-y-2 mt-auto pt-4">
+                <Button 
+                  onClick={usePotion}
+                  disabled={playerPotions <= 0 || dungeonState === "start" || playerHp >= playerMaxHp}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-500/30 text-xs font-semibold py-4 h-9 cursor-pointer"
+                >
+                  🧪 포션 마시기 (+50 HP)
+                </Button>
+                <Button 
+                  onClick={buyPotion}
+                  disabled={playerGold < 30 || dungeonState === "start" || dungeonState === "gameover" || dungeonState === "win"}
+                  className="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-amber-400 text-xs font-semibold py-4 h-9 cursor-pointer"
+                >
+                  💰 포션 구매하기 (30 G)
+                </Button>
+              </div>
+            </div>
+
+            {/* 우측 패널: 메인 스테이지 및 배틀 단독 스크린 */}
+            <div className="flex-1 border border-zinc-800/80 bg-zinc-950/50 rounded-xl p-6 flex flex-col relative z-10">
+              
+              {/* 상단 층수 정보 */}
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-900 mb-4 text-xs font-semibold">
+                <span className="text-rose-400 tracking-wider flex items-center gap-1.5"><Sword className="h-3.5 w-3.5" /> 제 {dungeonFloor + 1} 층 던전</span>
+                <span className="text-zinc-500 italic">구역: {floorName} ({dungeonRoom + 1} / {currentFloorItems.length} Rooms)</span>
+              </div>
+
+              {/* 게임 상태 분기 */}
+              {dungeonState === "start" && (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                  <div className="h-16 w-16 bg-rose-600/10 text-rose-500 border border-rose-500/20 rounded-full flex items-center justify-center animate-bounce mb-4">
+                    <Sword className="h-8 w-8" />
+                  </div>
+                  <h2 className="text-xl font-bold text-zinc-100 mb-2">RSS 로그라이크 던전 크롤러</h2>
+                  <p className="text-zinc-400 text-xs max-w-sm leading-relaxed mb-6">
+                    블로그 카테고리가 층수가 되고, 글 제목들이 강력한 지식 몬스터가 되어 앞을 가로막습니다. 
+                    퀴즈를 풀고 영토를 확장하며, 레벨업을 하여 대도사 서예린의 최종 던전 왕관을 점령해 보세요!
+                  </p>
+                  <Button 
+                    onClick={startDungeon}
+                    className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-8 py-5 h-11 text-sm shadow-[0_0_15px_rgba(244,63,94,0.4)] cursor-pointer"
+                  >
+                    ⚔️ 모험 시작하기 ⚔️
+                  </Button>
+                </div>
+              )}
+
+              {dungeonState === "explore" && currentItem && (
+                <div className="flex-1 flex flex-col justify-between">
+                  <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-900/30 text-center max-w-md mx-auto my-auto space-y-4">
+                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-850 border border-zinc-700 text-rose-400">
+                      <Shield className="h-5 w-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs text-rose-400 font-bold mb-1 tracking-wider">NEXT ROOM</h3>
+                      <p className="text-sm font-bold text-zinc-100 leading-snug line-clamp-2 px-2">{currentItem.title}</p>
+                    </div>
+                    <p className="text-[11px] text-zinc-500 italic line-clamp-2 px-4 leading-relaxed">
+                      {currentItem.games && currentItem.games.length > 0 
+                        ? "⚠️ 위험 경고: 이 몬스터는 특수 게임 능력치를 장착하고 있습니다." 
+                        : "이 방을 통과하기 위해 영어/상식 수호자 몬스터를 물리치십시오."}
+                    </p>
+                    <Button 
+                      onClick={enterBattle}
+                      className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold h-10 text-xs cursor-pointer shadow-[0_0_8px_rgba(244,63,94,0.3)]"
+                    >
+                      🚪 방에 진입하기 (전투 개시)
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {dungeonState === "battle" && currentQuiz && (
+                <div className="flex-1 flex flex-col gap-4">
+                  {/* 몬스터 체력 현황판 */}
+                  <div className="p-4 rounded-xl border border-rose-950 bg-rose-950/15 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex-1 w-full space-y-1">
+                      <div className="flex justify-between text-xs font-bold">
+                        <span className="text-rose-400 flex items-center gap-1.5">😈 {currentMonsterName}</span>
+                        <span className="text-rose-400">{monsterHp} / {monsterMaxHp} HP</span>
+                      </div>
+                      <div className="h-2 w-full bg-zinc-950 border border-zinc-900 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-red-650 to-rose-600 transition-all duration-300"
+                          style={{ width: `${(monsterHp / monsterMaxHp) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 퀴즈 문제 스크린 */}
+                  <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-950/50 flex-1 flex flex-col justify-center gap-4">
+                    <div className="text-center font-bold text-rose-500 text-xs uppercase tracking-wider">
+                      💡 다음 빈칸에 알맞은 단어를 조지시오!
+                    </div>
+                    <div className="text-center font-bold text-sm md:text-base text-zinc-100 leading-relaxed px-4">
+                      "{currentQuiz.question}"
+                    </div>
+
+                    {/* 4지선다 옵션 버튼 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                      {currentQuiz.options.map((option, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleAttack(idx)}
+                          className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 hover:border-zinc-700 text-zinc-200 text-xs font-semibold text-center transition-all duration-200 cursor-pointer hover:scale-[1.01] hover:shadow-lg active:scale-[0.99]"
+                        >
+                          <span className="text-[10px] text-zinc-500 font-bold border border-zinc-800 px-1.5 py-0.5 rounded bg-zinc-950 mr-2">{idx + 1}</span>
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {dungeonState === "gameover" && (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                  <div className="h-16 w-16 bg-zinc-900 border border-zinc-850 rounded-full flex items-center justify-center mb-4 text-zinc-500 text-2xl">
+                    💀
+                  </div>
+                  <h2 className="text-xl font-bold text-red-500 mb-2">당신은 쓰러졌습니다!</h2>
+                  <p className="text-zinc-400 text-xs max-w-sm mb-6 leading-relaxed">
+                    마지막 구역인 [제 {dungeonFloor + 1}층: {floorName}] 방을 돌파하는 도중 체력이 소진되어 쓰러지셨습니다. 
+                    골드로 포션을 적절히 확보하여 재도전하세요!
+                  </p>
+                  <Button 
+                    onClick={startDungeon}
+                    className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-8 py-5 h-11 text-sm shadow-[0_0_15px_rgba(244,63,94,0.4)] cursor-pointer"
+                  >
+                    ⚔️ 처음부터 재도전
+                  </Button>
+                </div>
+              )}
+
+              {dungeonState === "win" && (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                  <div className="h-16 w-16 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-full flex items-center justify-center animate-bounce mb-4">
+                    <Trophy className="h-8 w-8" />
+                  </div>
+                  <h2 className="text-xl font-bold text-amber-400 mb-2">🎉 축하합니다! 던전 완전 정복! 🎉</h2>
+                  <p className="text-zinc-400 text-xs max-w-sm mb-6 leading-relaxed">
+                    모든 카테고리 층수를 정복하고 블로그의 최종 수호자 서예린 선생님을 격파하여 '은밀한 학습의 정복자' 왕관을 획득하셨습니다!
+                  </p>
+                  <Button 
+                    onClick={startDungeon}
+                    className="bg-amber-500 hover:bg-amber-600 text-black font-bold px-8 py-5 h-11 text-sm shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer"
+                  >
+                    ⚔️ 영광스러운 모험 재시작
+                  </Button>
+                </div>
+              )}
+
+              {/* 하단 배틀 로그 터미널 */}
+              {dungeonState !== "start" && (
+                <div className="mt-4 pt-3 border-t border-zinc-900 flex flex-col gap-2">
+                  <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold flex items-center gap-1.5"><List className="h-3 w-3" /> 모험 기록 (BATTLE LOGS)</div>
+                  <div className="h-28 overflow-y-auto bg-zinc-950 border border-zinc-900 rounded-lg p-3 text-[11px] font-mono space-y-1 text-zinc-400 flex flex-col-reverse">
+                    {battleLogs.slice().reverse().map((log, i) => (
+                      <div key={i} className="leading-snug">
+                        {log.startsWith("🎯") && <span className="text-emerald-400 font-semibold">{log}</span>}
+                        {log.startsWith("❌") && <span className="text-rose-400 font-semibold">{log}</span>}
+                        {log.startsWith("💥") && <span className="text-rose-500 font-semibold">{log}</span>}
+                        {log.startsWith("🏆") && <span className="text-amber-400 font-bold">{log}</span>}
+                        {log.startsWith("✨") && <span className="text-indigo-400 font-bold">{log}</span>}
+                        {log.startsWith("😈") && <span className="text-orange-400">{log}</span>}
+                        {!log.startsWith("🎯") && !log.startsWith("❌") && !log.startsWith("💥") && !log.startsWith("🏆") && !log.startsWith("✨") && !log.startsWith("😈") && <span>{log}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        );
       })()}
 
       {/* 리스트 뷰 */}
