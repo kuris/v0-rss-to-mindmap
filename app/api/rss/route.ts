@@ -51,10 +51,10 @@ function parseXML(xml: string): ParsedRSS {
     { pattern: /핀볼|pinball/i, name: "핀볼 게임", type: "아케이드" },
     { pattern: /테트리스|tetris/i, name: "테트리스", type: "퍼즐" },
     { pattern: /플래시\s*카드|flash\s*card|flashcard/i, name: "플래시 카드", type: "학습" },
-    { pattern: /퀴즈|quiz|판독기/i, name: "퀴즈", type: "학습" },
+    { pattern: /퀴즈|quiz|판독기|판독|mbti|헬모드|원소/i, name: "퀴즈", type: "학습" },
     { pattern: /스네이크|snake/i, name: "스네이크", type: "아케이드" },
     { pattern: /슈팅|shooting/i, name: "슈팅 게임", type: "액션" },
-    { pattern: /미니\s*게임|mini\s*game|광클|클릭\s*게임|토익\s*게임/i, name: "미니 게임", type: "기타" },
+    { pattern: /미니\s*게임|mini\s*game|광클|클릭\s*게임|토익\s*게임|밀실|결초보은/i, name: "미니 게임", type: "기타" },
   ]
 
   const gamesMap = new Map<string, GameInfo>()
@@ -92,6 +92,20 @@ function parseXML(xml: string): ParsedRSS {
         if (!gamesMap.has(name)) {
           gamesMap.set(name, { name, type, articles: [] })
         }
+        gamesMap.get(name)!.articles.push({ title, link })
+      }
+    }
+
+    // 리얼 메모리 매칭 및 카드 게임 정밀 탐지 (144번 등) - 본문 내용 중 실제 게임 작동 문구가 있는 경우 수집
+    const memoryGameUIPattern = /기억력이\s*붕어니|다시\s*묶어보기|다시\s*맞춰보기|쌍이\s*맞는|맞는\s*키워드|미션\s*완료|데이터\s*칩/i
+    if (memoryGameUIPattern.test(description)) {
+      const name = "미니 게임"
+      const type = "기타"
+      detectedGames.push(name)
+      if (!gamesMap.has(name)) {
+        gamesMap.set(name, { name, type, articles: [] })
+      }
+      if (!gamesMap.get(name)!.articles.some(art => art.link.toLowerCase() === link.toLowerCase())) {
         gamesMap.get(name)!.articles.push({ title, link })
       }
     }
@@ -139,7 +153,7 @@ function classifyCategory(title: string): string[] {
   return ["기타"];
 }
 
-async function fetchAndParseHTMLPage(page: number): Promise<{ id: string; title: string; link: string; pubDate: string }[]> {
+async function fetchAndParseHTMLPage(page: number): Promise<{ id: string; title: string; link: string; excerpt: string; pubDate: string }[]> {
   try {
     const res = await fetch(`https://chatgpts.kr/?page=${page}`, {
       next: { revalidate: 300 },
@@ -147,18 +161,21 @@ async function fetchAndParseHTMLPage(page: number): Promise<{ id: string; title:
     if (!res.ok) return [];
     const html = await res.text();
     
-    const posts: { id: string; title: string; link: string; pubDate: string }[] = [];
-    const postRegex = /<a href="\/(\d+)"[^>]*>[\s\S]*?<span class="title">([\s\S]*?)<\/span>[\s\S]*?<span class="date">([\s\S]*?)<\/span>/g;
+    const posts: { id: string; title: string; link: string; excerpt: string; pubDate: string }[] = [];
+    // post-item 컨테이너 매칭을 수행해 사이드바 링크 및 댓글 목록의 중복 검출을 완벽하게 예방하고, Excerpt(요약본)를 함께 수집합니다!
+    const postRegex = /<div class="post-item">[\s\S]*?<a href="\/(\d+)"[^>]*>[\s\S]*?<span class="title">([\s\S]*?)<\/span>[\s\S]*?<span class="excerpt">([\s\S]*?)<\/span>[\s\S]*?<span class="date">([\s\S]*?)<\/span>/g;
     
     let match;
     while ((match = postRegex.exec(html)) !== null) {
       const id = match[1];
       const title = decodeHtmlEntities(match[2].trim());
-      const pubDate = match[3].trim();
+      const excerpt = decodeHtmlEntities(match[3].trim());
+      const pubDate = match[4].trim();
       posts.push({
         id,
         title,
         link: `https://chatgpts.kr/${id}`,
+        excerpt,
         pubDate,
       });
     }
@@ -168,6 +185,7 @@ async function fetchAndParseHTMLPage(page: number): Promise<{ id: string; title:
     return [];
   }
 }
+
 
 export async function GET() {
   try {
@@ -183,8 +201,8 @@ export async function GET() {
     const xml = await rssResponse.text()
     const parsed = parseXML(xml)
 
-    // 2. Fetch pages 1 to 20 in parallel to grab all historic posts
-    const pages = Array.from({ length: 20 }, (_, i) => i + 1)
+    // 2. Fetch pages 1 to 25 in parallel to grab all historic posts (107번 결초보은 등 오래된 페이지 커버)
+    const pages = Array.from({ length: 25 }, (_, i) => i + 1)
     const htmlResults = await Promise.all(pages.map(fetchAndParseHTMLPage))
     const scrapedPosts = htmlResults.flat()
 
@@ -202,10 +220,10 @@ export async function GET() {
       { pattern: /핀볼|pinball/i, name: "핀볼 게임", type: "아케이드" },
       { pattern: /테트리스|tetris/i, name: "테트리스", type: "퍼즐" },
       { pattern: /플래시\s*카드|flash\s*card|flashcard/i, name: "플래시 카드", type: "학습" },
-      { pattern: /퀴즈|quiz|판독기/i, name: "퀴즈", type: "학습" },
+      { pattern: /퀴즈|quiz|판독기|판독|mbti|헬모드|원소/i, name: "퀴즈", type: "학습" },
       { pattern: /스네이크|snake/i, name: "스네이크", type: "아케이드" },
       { pattern: /슈팅|shooting/i, name: "슈팅 게임", type: "액션" },
-      { pattern: /미니\s*게임|mini\s*game|광클|클릭\s*게임|토익\s*게임/i, name: "미니 게임", type: "기타" },
+      { pattern: /미니\s*게임|mini\s*game|광클|클릭\s*게임|토익\s*게임|밀실|결초보은|기억력이\s*붕어니|다시\s*묶어보기|다시\s*맞춰보기|쌍이\s*맞는|맞는\s*키워드|미션\s*완료|데이터\s*칩/i, name: "미니 게임", type: "기타" },
     ]
 
     const uniqueScraped = new Map<string, typeof scrapedPosts[0]>()
@@ -217,10 +235,11 @@ export async function GET() {
 
     for (const post of uniqueScraped.values()) {
       if (!existingLinks.has(post.link.toLowerCase())) {
-        // Detect games on older post titles
+        // Detect games on older post titles & excerpts (completely safe from sidebar noise)
         const detectedGames: string[] = []
+        const textToScan = post.title + " " + post.excerpt
         for (const { pattern, name, type } of gamePatterns) {
-          if (pattern.test(post.title)) {
+          if (pattern.test(textToScan)) {
             detectedGames.push(name)
             if (!gamesMap.has(name)) {
               gamesMap.set(name, { name, type, articles: [] })
