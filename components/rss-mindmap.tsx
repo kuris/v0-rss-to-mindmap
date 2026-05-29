@@ -231,6 +231,7 @@ export function RSSMindMap() {
   const [monsterMaxHp, setMonsterMaxHp] = useState(0)
   const [currentMonsterName, setCurrentMonsterName] = useState("")
   const [currentMonsterDesc, setCurrentMonsterDesc] = useState("")
+  const [currentMonsterImg, setCurrentMonsterImg] = useState("")
   const [currentQuiz, setCurrentQuiz] = useState<{ question: string; options: string[]; correctIdx: number } | null>(null)
   const [battleLogs, setBattleLogs] = useState<string[]>([])
 
@@ -369,6 +370,17 @@ export function RSSMindMap() {
     setBattleLogs(["⚔️ 숲속 깊은 모험의 던전 입구에 입장하셨습니다!"]);
   };
 
+  const YERIN_MONSTER_ASSETS = [
+    "https://raw.githubusercontent.com/chrkim0718-coder/zozigi-assets/main/characters/Yerin_FANTASY_HIGH_20260523121654_26.webp",
+    "https://raw.githubusercontent.com/chrkim0718-coder/zozigi-assets/main/characters/Yerin_FANTASY_HIGH_20260523121815_44.webp",
+    "https://raw.githubusercontent.com/chrkim0718-coder/zozigi-assets/main/characters/Yerin_FANTASY_HIGH_20260523121857_52.webp",
+    "https://raw.githubusercontent.com/chrkim0718-coder/zozigi-assets/main/characters/Yerin_EXPERT_HIGH_20260523121508_0.webp",
+    "https://raw.githubusercontent.com/chrkim0718-coder/zozigi-assets/main/characters/Yerin_EXPERT_HIGH_20260523121611_15.webp",
+    "https://raw.githubusercontent.com/chrkim0718-coder/zozigi-assets/main/characters/Yerin_CASUAL_MID_20260523121514_1.webp",
+    "https://raw.githubusercontent.com/chrkim0718-coder/zozigi-assets/main/characters/Yerin_CASUAL_MID_20260523121605_14.webp",
+    "https://raw.githubusercontent.com/chrkim0718-coder/zozigi-assets/main/characters/Yerin_CASUAL_MID_20260523121701_27.webp"
+  ];
+
   const enterBattle = () => {
     const item = currentFloorItems[dungeonRoom];
     if (!item) return;
@@ -378,6 +390,10 @@ export function RSSMindMap() {
     setMonsterMaxHp(maxHp);
     setCurrentMonsterName(item.title);
     setCurrentMonsterDesc(item.description || "이 방을 지키고 있는 사악한 괴물입니다.");
+    
+    // 에셋 목록에서 무작위 캐릭터 이미지를 몬스터 스킨으로 선택!
+    const randImg = YERIN_MONSTER_ASSETS[Math.floor(Math.random() * YERIN_MONSTER_ASSETS.length)];
+    setCurrentMonsterImg(randImg);
     
     const quiz = generateQuiz(item, currentFloorItems);
     setCurrentQuiz(quiz);
@@ -1579,29 +1595,117 @@ export function RSSMindMap() {
               )}
 
               {dungeonState === "battle" && currentQuiz && (
-                <div className="flex-1 flex flex-col gap-4">
-                  {/* 몬스터 체력 현황판 */}
-                  <div className="p-4 rounded-xl border border-rose-950 bg-rose-950/15 flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div className="flex-1 w-full space-y-1">
-                      <div className="flex justify-between text-xs font-bold">
-                        <span className="text-rose-400 flex items-center gap-1.5">😈 {currentMonsterName}</span>
-                        <span className="text-rose-400">{monsterHp} / {monsterMaxHp} HP</span>
-                      </div>
-                      <div className="h-2 w-full bg-zinc-950 border border-zinc-900 rounded-full overflow-hidden">
+                <div className="flex-1 flex flex-col gap-5 bg-zinc-950/65 border border-emerald-950/60 p-5 rounded-xl shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] relative overflow-hidden">
+                  {/* CRT Scanline mesh overlay for the entire MGS console */}
+                  <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.15)_50%)] bg-[size:100%_4px] opacity-20 z-20" />
+                  
+                  {/* MGS Codec Grid */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-6 border-b border-emerald-900/20 pb-5 z-10 relative">
+                    
+                    {/* Left: Player Video Feed */}
+                    <div className="flex flex-col items-center gap-2 shrink-0">
+                      <div className="relative w-32 h-32 border-2 border-emerald-500/40 bg-zinc-950/80 rounded-lg overflow-hidden flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+                        {/* Scanline overlay */}
+                        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%)] bg-[size:100%_4px] opacity-40 z-10" />
+                        <div className="absolute top-1 left-1 text-[7px] font-mono text-emerald-500/60">PL_WARRIOR</div>
+                        <div className="absolute bottom-1 right-1 text-[7px] font-mono text-emerald-500/60">TRANS_ON</div>
+                        
+                        {/* Player icon/silhouette hued to monochrome green */}
                         <div 
-                          className="h-full bg-gradient-to-r from-red-650 to-rose-600 transition-all duration-300"
-                          style={{ width: `${(monsterHp / monsterMaxHp) * 100}%` }}
-                        />
+                          className="w-full h-full flex items-center justify-center bg-zinc-900 transition-all duration-300"
+                          style={{
+                            filter: "grayscale(1) sepia(1) hue-rotate(90deg) saturate(3) brightness(0.8) contrast(1.2)"
+                          }}
+                        >
+                          <Sword className="w-12 h-12 text-emerald-500 animate-pulse" />
+                        </div>
                       </div>
+                      <span className="text-[9px] font-mono text-emerald-500 font-bold tracking-widest">PLAYER</span>
+                    </div>
+
+                    {/* Middle: Frequency & Sound Visualizer */}
+                    <div className="flex-1 flex flex-col items-center justify-center gap-3 py-2">
+                      <div className="text-center font-mono text-2xl md:text-3xl font-extrabold tracking-widest text-emerald-400 select-none drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">
+                        144.00 <span className="text-[10px] text-emerald-500/70 font-semibold">MHz</span>
+                      </div>
+                      
+                      {/* Live MGS audio lane spikes */}
+                      <div className="flex items-center gap-1 h-8">
+                        {Array.from({ length: 14 }).map((_, i) => {
+                          const heightVal = Math.floor(Math.random() * 24) + 6;
+                          return (
+                            <div 
+                              key={i} 
+                              className="w-1 bg-emerald-500/80 rounded-full transition-all duration-150 animate-pulse"
+                              style={{ 
+                                height: `${heightVal}px`,
+                              }}
+                            />
+                          )
+                        })}
+                      </div>
+                      
+                      <div className="text-[8px] font-mono text-emerald-500/50 uppercase tracking-widest animate-pulse">
+                        Codec Link Established
+                      </div>
+                    </div>
+
+                    {/* Right: Teacher Yerin (Codec Contact) */}
+                    <div className="flex flex-col items-center gap-2 shrink-0">
+                      <div className="relative w-32 h-32 border-2 border-emerald-500/40 bg-zinc-950/80 rounded-lg overflow-hidden flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.15)] group">
+                        {/* Scanline overlay */}
+                        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%)] bg-[size:100%_4px] opacity-40 z-10" />
+                        <div className="absolute top-1 left-1 text-[7px] font-mono text-emerald-500/60">CONTACT_FEED</div>
+                        <div className="absolute bottom-1 right-1 text-[7px] font-mono text-emerald-500/60">{monsterHp > 0 ? "LINK_ACTIVE" : "LINK_FAIL"}</div>
+                        
+                        {/* Yerin portrait hued to MGS Codec green CRT skin! */}
+                        <img 
+                          src={currentMonsterImg} 
+                          alt="Teacher Yerin Codec Portrait" 
+                          className={cn(
+                            "w-full h-full object-contain transition-all duration-500",
+                            monsterHp > 0
+                              ? "group-hover:filter-none" // Hover reveals full color!
+                              : "opacity-30 grayscale rotate-12 scale-90"
+                          )}
+                          style={monsterHp > 0 ? {
+                            filter: "grayscale(1) sepia(1) hue-rotate(90deg) saturate(3) brightness(0.9) contrast(1.2)"
+                          } : undefined}
+                        />
+                        {monsterHp === 0 && (
+                          <div className="absolute inset-0 bg-red-950/40 flex items-center justify-center font-mono font-bold text-red-500 text-[8px] tracking-wider z-20">
+                            CONNECTION LOST
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[9px] font-mono text-emerald-500 font-bold tracking-widest max-w-[130px] truncate text-center">
+                        YERIN_BOSS
+                      </span>
+                    </div>
+
+                  </div>
+
+                  {/* 몬스터 체력 현황판 (Codec HUD style) */}
+                  <div className="p-3 rounded-lg border border-emerald-900/20 bg-emerald-950/5 flex flex-col gap-1.5 z-10 relative">
+                    <div className="flex justify-between text-[10px] font-mono font-bold text-emerald-400">
+                      <span>📟 TARGET CONTEXT INTEGRITY</span>
+                      <span>{monsterHp} / {monsterMaxHp} HP</span>
+                    </div>
+                    <div className="h-2 w-full bg-zinc-950 border border-emerald-950/40 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-300 shadow-[0_0_8px_rgba(52,211,153,0.3)]"
+                        style={{ width: `${(monsterHp / monsterMaxHp) * 100}%` }}
+                      />
                     </div>
                   </div>
 
-                  {/* 퀴즈 문제 스크린 */}
-                  <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-950/50 flex-1 flex flex-col justify-center gap-4">
-                    <div className="text-center font-bold text-rose-500 text-xs uppercase tracking-wider">
-                      💡 다음 빈칸에 알맞은 단어를 조지시오!
+                  {/* 퀴즈 문제 스크린 (MGS Transmission Dialog) */}
+                  <div className="p-5 rounded-lg border border-emerald-900/20 bg-zinc-950/90 flex-1 flex flex-col justify-center gap-4 z-10 relative">
+                    <div className="text-center font-mono font-bold text-emerald-500 text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                      Transmission Cipher Detected
                     </div>
-                    <div className="text-center font-bold text-sm md:text-base text-zinc-100 leading-relaxed px-4">
+                    <div className="text-center font-bold text-sm md:text-base text-emerald-100 leading-relaxed px-4 font-mono">
                       "{currentQuiz.question}"
                     </div>
 
@@ -1611,9 +1715,9 @@ export function RSSMindMap() {
                         <button
                           key={idx}
                           onClick={() => handleAttack(idx)}
-                          className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 hover:border-zinc-700 text-zinc-200 text-xs font-semibold text-center transition-all duration-200 cursor-pointer hover:scale-[1.01] hover:shadow-lg active:scale-[0.99]"
+                          className="p-3 rounded-lg border border-emerald-950/30 bg-zinc-900/30 hover:bg-emerald-950/20 hover:border-emerald-500/50 text-emerald-200 text-xs font-semibold text-center transition-all duration-200 cursor-pointer hover:scale-[1.01] active:scale-[0.99] font-mono"
                         >
-                          <span className="text-[10px] text-zinc-500 font-bold border border-zinc-800 px-1.5 py-0.5 rounded bg-zinc-950 mr-2">{idx + 1}</span>
+                          <span className="text-[10px] text-emerald-500 font-bold border border-emerald-900/40 px-1.5 py-0.5 rounded bg-zinc-950 mr-2">{idx + 1}</span>
                           {option}
                         </button>
                       ))}
