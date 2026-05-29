@@ -247,6 +247,7 @@ export function RSSMindMap() {
   const [currentQuiz, setCurrentQuiz] = useState<{ question: string; options: string[]; correctIdx: number } | null>(null)
   const [battleLogs, setBattleLogs] = useState<string[]>([])
   const [hasClickedHint, setHasClickedHint] = useState(false)
+  const [dungeonActiveId, setDungeonActiveId] = useState(0)
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -423,8 +424,14 @@ export function RSSMindMap() {
   const currentFloorItems = useMemo(() => {
     const floorCat = dungeonFloors[dungeonFloor];
     if (!floorCat) return [];
-    return groupedByCategory.get(floorCat) || [];
-  }, [dungeonFloors, dungeonFloor, groupedByCategory]);
+    const items = [...(groupedByCategory.get(floorCat) || [])];
+    // Fisher-Yates shuffle
+    for (let i = items.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [items[i], items[j]] = [items[j], items[i]];
+    }
+    return items;
+  }, [dungeonFloors, dungeonFloor, groupedByCategory, dungeonActiveId]);
 
   const generateQuiz = useCallback((item: RSSItem, categoryItems: RSSItem[]) => {
     const title = item.title;
@@ -493,6 +500,7 @@ export function RSSMindMap() {
     setPlayerPotions(1);
     setDungeonFloor(0);
     setDungeonRoom(0);
+    setDungeonActiveId(prev => prev + 1);
     setDungeonState("explore");
     setBattleLogs(["⚔️ 숲속 깊은 모험의 던전 입구에 입장하셨습니다!"]);
   };
