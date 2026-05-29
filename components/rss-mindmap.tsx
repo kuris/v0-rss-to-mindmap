@@ -232,6 +232,7 @@ export function RSSMindMap() {
   const [currentMonsterName, setCurrentMonsterName] = useState("")
   const [currentMonsterDesc, setCurrentMonsterDesc] = useState("")
   const [currentMonsterImg, setCurrentMonsterImg] = useState("")
+  const [battleTimer, setBattleTimer] = useState(15)
   const [currentQuiz, setCurrentQuiz] = useState<{ question: string; options: string[]; correctIdx: number } | null>(null)
   const [battleLogs, setBattleLogs] = useState<string[]>([])
 
@@ -288,6 +289,119 @@ export function RSSMindMap() {
     if (selectedCategories.size === 0) return allCategories
     return allCategories.filter((cat) => selectedCategories.has(cat))
   }, [allCategories, selectedCategories])
+
+  // --- 로그라이크 던전 크롤러 사운드 효과 (Web Audio API 8비트 합성 신스) ---
+  const playSFX = useCallback((type: "codec" | "success" | "hit" | "victory" | "gameover" | "potion" | "click" | "tick" | "alert_tick") => {
+    if (typeof window === "undefined") return;
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+
+      const playTone = (freq: number, oscType: OscillatorType, duration: number, delay = 0, volume = 0.1) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = oscType;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+        
+        gain.gain.setValueAtTime(volume, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + duration);
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + duration);
+      };
+
+      if (type === "codec") {
+        // MGS Codec Beep: Dual high-pitched high-speed sine double-beeps
+        playTone(950, "sine", 0.08, 0, 0.12);
+        playTone(950, "sine", 0.08, 0.11, 0.12);
+        playTone(950, "sine", 0.08, 0.42, 0.12);
+        playTone(950, "sine", 0.08, 0.53, 0.12);
+
+        // MGS 무전기 치지직 (White Noise Radio Static) 합성 효과!
+        try {
+          const bufferSize = ctx.sampleRate * 0.4; // 0.4 seconds static
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+          const noiseNode = ctx.createBufferSource();
+          noiseNode.buffer = buffer;
+          
+          const filter = ctx.createBiquadFilter();
+          filter.type = "bandpass";
+          filter.frequency.value = 1000; // tinny radio filter
+          filter.Q.value = 1.5;
+          
+          const gainNode = ctx.createGain();
+          gainNode.gain.setValueAtTime(0.04, ctx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+          
+          noiseNode.connect(filter);
+          filter.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          
+          noiseNode.start();
+        } catch (err) {}
+      } else if (type === "success") {
+        // Arcade Correct / Success: Bright ascending square wave notes
+        playTone(523.25, "square", 0.08, 0, 0.06); // C5
+        playTone(659.25, "square", 0.08, 0.08, 0.06); // E5
+        playTone(783.99, "square", 0.08, 0.16, 0.06); // G5
+        playTone(1046.50, "square", 0.22, 0.24, 0.06); // C6
+      } else if (type === "hit") {
+        // Combat Hit: Descending harsh noise / sawtooth sweep
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(250, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3);
+        
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      } else if (type === "potion") {
+        // Potion Drink: Descending/ascending sine wave bubbles
+        for (let i = 0; i < 5; i++) {
+          const freq = 400 + i * 130;
+          playTone(freq, "sine", 0.06, i * 0.07, 0.08);
+        }
+      } else if (type === "click") {
+        // Short HUD interface click
+        playTone(1000, "sine", 0.04, 0, 0.04);
+      } else if (type === "tick") {
+        // Tense Timer normal tick: low-pitch sonar
+        playTone(370, "sine", 0.03, 0, 0.03);
+      } else if (type === "alert_tick") {
+        // Tense Timer urgent warning tick: high-pitch double sonar
+        playTone(880, "sine", 0.03, 0, 0.06);
+        playTone(880, "sine", 0.03, 0.1, 0.06);
+      } else if (type === "victory") {
+        // Victory Fanfare: Triumphant fast C-major arpeggio
+        const melody = [523.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00];
+        melody.forEach((freq, idx) => {
+          playTone(freq, "square", 0.12, idx * 0.08, 0.05);
+        });
+      } else if (type === "gameover") {
+        // Game Over: Sad descending sawtooth sequence
+        const notes = [392.00, 349.23, 311.13, 261.63, 196.00];
+        notes.forEach((freq, idx) => {
+          playTone(freq, "sawtooth", 0.22, idx * 0.18, 0.06);
+        });
+      }
+    } catch (e) {
+      console.warn("Audio Context failed", e);
+    }
+  }, []);
 
   // --- 로그라이크 던전 크롤러 로직 ---
   const dungeonFloors = useMemo(() => {
@@ -358,6 +472,7 @@ export function RSSMindMap() {
   }, []);
 
   const startDungeon = () => {
+    playSFX("click");
     setPlayerHp(100);
     setPlayerMaxHp(100);
     setPlayerLevel(1);
@@ -385,6 +500,7 @@ export function RSSMindMap() {
     const item = currentFloorItems[dungeonRoom];
     if (!item) return;
 
+    playSFX("codec");
     const maxHp = 30 + dungeonFloor * 20;
     setMonsterHp(maxHp);
     setMonsterMaxHp(maxHp);
@@ -411,6 +527,7 @@ export function RSSMindMap() {
     const logs = [...battleLogs];
     if (selectedIdx === currentQuiz.correctIdx) {
       // 정답! 플레이어가 공격합니다.
+      playSFX("success");
       const damage = Math.floor(Math.random() * 15) + 15 + playerLevel * 5; // 15~30 + 레벨 보너스
       const newHp = Math.max(0, monsterHp - damage);
       setMonsterHp(newHp);
@@ -419,6 +536,7 @@ export function RSSMindMap() {
       
       if (newHp === 0) {
         // 몬스터 처치!
+        playSFX("victory");
         const xpEarned = 15 + dungeonFloor * 10;
         const goldEarned = 15 + dungeonFloor * 10;
         const nextXp = playerXp + xpEarned;
@@ -464,6 +582,7 @@ export function RSSMindMap() {
       }
     } else {
       // 오답! 몬스터가 플레이어를 공격합니다.
+      playSFX("hit");
       const monsterDamage = Math.floor(Math.random() * 8) + 8 + dungeonFloor * 4; // 8~16 + 층 보너스
       const newHp = Math.max(0, playerHp - monsterDamage);
       setPlayerHp(newHp);
@@ -472,6 +591,7 @@ export function RSSMindMap() {
       logs.push(`💥 몬스터가 분노하여 반격했습니다! 당신은 ${monsterDamage}의 피해를 입었습니다.`);
       
       if (newHp === 0) {
+        playSFX("gameover");
         setDungeonState("gameover");
         logs.push("💀 당신은 쓰러졌습니다... 던전 탐험 실패!");
       } else {
@@ -492,6 +612,7 @@ export function RSSMindMap() {
       setBattleLogs(prev => [...prev, "❤️ 이미 체력이 가득 차 있습니다!"]);
       return;
     }
+    playSFX("potion");
     setPlayerPotions(prev => prev - 1);
     setPlayerHp(prev => Math.min(playerMaxHp, prev + 50));
     setBattleLogs(prev => [...prev, "🧪 포션을 마셔 체력을 50 회복했습니다!"]);
@@ -502,10 +623,66 @@ export function RSSMindMap() {
       setBattleLogs(prev => [...prev, "💰 골드가 부족합니다! (포션 가격: 30 Gold)"]);
       return;
     }
+    playSFX("click");
     setPlayerGold(prev => prev - 30);
     setPlayerPotions(prev => prev + 1);
     setBattleLogs(prev => [...prev, "🧪 상점에서 포션을 1개 구매했습니다. (-30 Gold)"]);
   };
+
+  // --- 던전 전투 카운트다운 타이머 로직 ---
+  useEffect(() => {
+    if (dungeonState === "battle" && currentQuiz) {
+      setBattleTimer(15);
+    }
+  }, [dungeonState, currentQuiz]);
+
+  useEffect(() => {
+    if (dungeonState !== "battle" || !currentQuiz) return;
+    
+    const interval = setInterval(() => {
+      setBattleTimer(prev => {
+        if (prev <= 1) {
+          // 타임아웃! 플레이어가 기습당함
+          playSFX("hit");
+          const monsterDamage = Math.floor(Math.random() * 8) + 8 + dungeonFloor * 4;
+          setPlayerHp(h => {
+            const nextH = Math.max(0, h - monsterDamage);
+            if (nextH === 0) {
+              setDungeonState("gameover");
+              playSFX("gameover");
+            }
+            return nextH;
+          });
+          
+          setBattleLogs(l => [
+            ...l,
+            `⏰ [시간 초과!] 교신 해독 시간이 만료되었습니다!`,
+            `💥 몬스터가 당신을 기습하여 ${monsterDamage}의 피해를 입혔습니다!`
+          ]);
+          
+          // 퀴즈 갱신
+          const item = currentFloorItems[dungeonRoom];
+          if (item) {
+            const nextQuiz = generateQuiz(item, currentFloorItems);
+            setCurrentQuiz(nextQuiz);
+          }
+          
+          return 15; // 타이머 리셋
+        }
+        
+        // 쫄리는 타이머 사운드: 남은 시간에 따라 경고음 속도 조절!
+        if (prev <= 6) {
+          playSFX("alert_tick");
+        } else {
+          playSFX("tick");
+        }
+        
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [dungeonState, currentQuiz, dungeonFloor, dungeonRoom, currentFloorItems, generateQuiz]);
 
   // 노드와 엣지 생성
   useEffect(() => {
@@ -743,7 +920,7 @@ export function RSSMindMap() {
           <Button
             variant={viewMode === "map" ? "default" : "outline"}
             size="sm"
-            onClick={() => setViewMode("map")}
+            onClick={() => { setViewMode("map"); playSFX("click"); }}
           >
             <MapIcon className="mr-1.5 h-4 w-4" />
             맵
@@ -751,7 +928,7 @@ export function RSSMindMap() {
           <Button
             variant={viewMode === "games" ? "default" : "outline"}
             size="sm"
-            onClick={() => setViewMode("games")}
+            onClick={() => { setViewMode("games"); playSFX("click"); }}
           >
             <Gamepad2 className="mr-1.5 h-4 w-4" />
             게임
@@ -759,7 +936,7 @@ export function RSSMindMap() {
           <Button
             variant={viewMode === "book" ? "default" : "outline"}
             size="sm"
-            onClick={() => { setViewMode("book"); setBookChapter(0); setBookPage(0) }}
+            onClick={() => { setViewMode("book"); setBookChapter(0); setBookPage(0); playSFX("click"); }}
           >
             <BookOpen className="mr-1.5 h-4 w-4" />
             도서
@@ -780,7 +957,7 @@ export function RSSMindMap() {
           <Button
             variant={viewMode === "list" ? "default" : "outline"}
             size="sm"
-            onClick={() => setViewMode("list")}
+            onClick={() => { setViewMode("list"); playSFX("click"); }}
           >
             <List className="mr-1.5 h-4 w-4" />
             목록
@@ -1623,30 +1800,47 @@ export function RSSMindMap() {
                       <span className="text-[9px] font-mono text-emerald-500 font-bold tracking-widest">PLAYER</span>
                     </div>
 
-                    {/* Middle: Frequency & Sound Visualizer */}
+                    {/* Middle: Frequency, Sound Visualizer & Tense Countdown */}
                     <div className="flex-1 flex flex-col items-center justify-center gap-3 py-2">
-                      <div className="text-center font-mono text-2xl md:text-3xl font-extrabold tracking-widest text-emerald-400 select-none drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">
-                        144.00 <span className="text-[10px] text-emerald-500/70 font-semibold">MHz</span>
+                      <div className="text-center font-mono text-2xl md:text-3xl font-extrabold tracking-widest text-emerald-400 select-none drop-shadow-[0_0_10px_rgba(52,211,153,0.3)] flex items-center gap-2">
+                        <span>144.00</span>
+                        <span className="text-[10px] text-emerald-500/70 font-semibold uppercase">MHz</span>
                       </div>
                       
                       {/* Live MGS audio lane spikes */}
                       <div className="flex items-center gap-1 h-8">
                         {Array.from({ length: 14 }).map((_, i) => {
-                          const heightVal = Math.floor(Math.random() * 24) + 6;
+                          const bounceDelay = (i % 4) * 0.12;
+                          const heightVal = battleTimer <= 5 
+                            ? Math.floor(Math.random() * 26) + 10 // urgent faster spikes!
+                            : Math.floor(Math.random() * 18) + 6;
                           return (
                             <div 
                               key={i} 
-                              className="w-1 bg-emerald-500/80 rounded-full transition-all duration-150 animate-pulse"
+                              className={cn(
+                                "w-1 rounded-full transition-all duration-150 animate-pulse",
+                                battleTimer <= 5 ? "bg-rose-500/90 animate-bounce" : "bg-emerald-500/80"
+                              )}
                               style={{ 
                                 height: `${heightVal}px`,
+                                animationDelay: battleTimer <= 5 ? `${bounceDelay}s` : undefined
                               }}
                             />
                           )
                         })}
                       </div>
-                      
-                      <div className="text-[8px] font-mono text-emerald-500/50 uppercase tracking-widest animate-pulse">
-                        Codec Link Established
+
+                      {/* Tense Countdown Timer */}
+                      <div className="flex flex-col items-center gap-0.5 border border-emerald-900/30 bg-emerald-950/5 px-4 py-1.5 rounded-md select-none">
+                        <span className="text-[7px] font-mono text-emerald-500/50 uppercase tracking-widest">TRANSMISSION TIMEOUT</span>
+                        <span className={cn(
+                          "font-mono text-base font-extrabold tracking-wider transition-all duration-200",
+                          battleTimer <= 5 
+                            ? "text-rose-500 animate-ping drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" 
+                            : "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]"
+                        )}>
+                          {battleTimer < 10 ? `0${battleTimer}` : battleTimer}s
+                        </span>
                       </div>
                     </div>
 
