@@ -17,7 +17,7 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { cn } from "@/lib/utils"
-import { Filter, X, ExternalLink, Loader2, RefreshCw, List, Map } from "lucide-react"
+import { Filter, X, ExternalLink, Loader2, RefreshCw, List, Map as MapIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
@@ -315,7 +315,7 @@ export function RSSMindMap() {
             size="sm"
             onClick={() => setViewMode("map")}
           >
-            <Map className="mr-1.5 h-4 w-4" />
+            <MapIcon className="mr-1.5 h-4 w-4" />
             맵
           </Button>
           <Button
