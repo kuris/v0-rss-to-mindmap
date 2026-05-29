@@ -208,6 +208,17 @@ const nodeTypes = {
   item: ItemNode,
 }
 
+function maskTitle(title: string): string {
+  const words = title.split(/\s+/).map(w => w.replace(/[\[\]\(\)\{\}"'🚀🎮🔥💻💡!?,.-]/g, "").trim()).filter(w => w.length >= 2);
+  if (words.length === 0) return title;
+  
+  let targetWord = words.find(w => /^[a-zA-Z]{3,12}$/.test(w)) || words.find(w => w.length >= 3 && w.length <= 6) || words[Math.floor(words.length / 2)] || "학습";
+  
+  const escapedTarget = targetWord.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const regex = new RegExp(escapedTarget, 'g');
+  return title.replace(regex, " ____ ");
+}
+
 export function RSSMindMap() {
   const { data, error, isLoading, mutate } = useSWR<ParsedRSS>("/api/rss", fetcher)
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
@@ -1798,7 +1809,7 @@ export function RSSMindMap() {
                     </div>
                     <div>
                       <h3 className="text-xs text-rose-400 font-bold mb-1 tracking-wider">NEXT ROOM</h3>
-                      <p className="text-sm font-bold text-zinc-100 leading-snug line-clamp-2 px-2">{currentItem.title}</p>
+                      <p className="text-sm font-bold text-zinc-100 leading-snug line-clamp-2 px-2">"{maskTitle(currentItem.title)}"</p>
                     </div>
                     <p className="text-[11px] text-zinc-500 italic line-clamp-2 px-4 leading-relaxed">
                       {currentItem.games && currentItem.games.length > 0 
