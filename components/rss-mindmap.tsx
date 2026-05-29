@@ -235,6 +235,7 @@ export function RSSMindMap() {
   const [battleTimer, setBattleTimer] = useState(15)
   const [currentQuiz, setCurrentQuiz] = useState<{ question: string; options: string[]; correctIdx: number } | null>(null)
   const [battleLogs, setBattleLogs] = useState<string[]>([])
+  const [hasClickedHint, setHasClickedHint] = useState(false)
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -513,6 +514,7 @@ export function RSSMindMap() {
     
     const quiz = generateQuiz(item, currentFloorItems);
     setCurrentQuiz(quiz);
+    setHasClickedHint(false);
     setDungeonState("battle");
     
     setBattleLogs(prev => [
@@ -600,6 +602,7 @@ export function RSSMindMap() {
         if (item) {
           const nextQuiz = generateQuiz(item, currentFloorItems);
           setCurrentQuiz(nextQuiz);
+          setHasClickedHint(false);
         }
       }
     }
@@ -627,6 +630,27 @@ export function RSSMindMap() {
     setPlayerGold(prev => prev - 30);
     setPlayerPotions(prev => prev + 1);
     setBattleLogs(prev => [...prev, "🧪 상점에서 포션을 1개 구매했습니다. (-30 Gold)"]);
+  };
+
+  const handleUseHint = () => {
+    const currentItem = currentFloorItems[dungeonRoom];
+    if (!currentItem || !currentQuiz || hasClickedHint) return;
+
+    playSFX("potion");
+    setHasClickedHint(true);
+    
+    setPlayerGold(prev => prev + 15);
+    setPlayerPotions(prev => prev + 1);
+    setBattleTimer(prev => prev + 30);
+    
+    setBattleLogs(prev => [
+      ...prev,
+      `📟 [전술 통신] 원문 분석 완료! 기밀 정보(힌트)를 획득했습니다.`,
+      `💰 보상 획득: 추가 골드 +15 G 및 지원 포션 +1개 지급!`,
+      `💡 전술 힌트: 정답은 "${currentQuiz.options[currentQuiz.correctIdx][0]}"(으)로 시작합니다.`
+    ]);
+
+    window.open(currentItem.link, "_blank");
   };
 
   // --- 던전 전투 카운트다운 타이머 로직 ---
@@ -665,6 +689,7 @@ export function RSSMindMap() {
           if (item) {
             const nextQuiz = generateQuiz(item, currentFloorItems);
             setCurrentQuiz(nextQuiz);
+            setHasClickedHint(false);
           }
           
           return 15; // 타이머 리셋
@@ -1526,6 +1551,14 @@ export function RSSMindMap() {
                             href={item.link}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={() => {
+                              playSFX("click");
+                              setPlayerGold(prev => prev + 5);
+                              setBattleLogs(prev => [
+                                ...prev,
+                                `📚 [학습 보상] 고서 "${item.title}" 원문을 해독하여 전술 자금을 획득했습니다! (+5 Gold)`
+                              ]);
+                            }}
                             className={cn(
                               "group flex gap-4 rounded-xl p-4 transition-all duration-200 hover:scale-[1.01] cursor-pointer",
                               isParchment
@@ -1567,6 +1600,17 @@ export function RSSMindMap() {
                                     {item.games[0]}
                                   </span>
                                 )}
+                                
+                                <span className={cn(
+                                  "inline-flex items-center gap-1 text-[9px] font-bold border rounded-full px-2 py-0.5 shadow-sm animate-pulse transition-all duration-300",
+                                  isParchment 
+                                    ? "bg-[#eadeb8]/60 border-[#8c7456]/40 text-[#4c321a]" 
+                                    : "bg-emerald-950/30 border-emerald-500/30 text-emerald-400"
+                                )}>
+                                  <Coins className="h-2.5 w-2.5 shrink-0" />
+                                  원문읽기 +5G
+                                </span>
+
                                 <ExternalLink className="ml-auto h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
                               </div>
                             </div>
@@ -1916,6 +1960,29 @@ export function RSSMindMap() {
                         </button>
                       ))}
                     </div>
+
+                    {/* Tactical Hint Button (Direct link to original blog post with high-incentive rewards) */}
+                    <div className="mt-2 pt-2 border-t border-emerald-950/30 flex justify-center">
+                      <button
+                        onClick={handleUseHint}
+                        disabled={hasClickedHint}
+                        className={cn(
+                          "w-full max-w-md py-2.5 px-4 rounded-lg border text-xs font-bold transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer font-mono select-none shadow-[0_0_12px_rgba(16,185,129,0.05)]",
+                          hasClickedHint 
+                            ? "bg-zinc-950/50 border-zinc-900 text-zinc-600 cursor-not-allowed"
+                            : "bg-emerald-950/30 border-emerald-500/30 hover:border-emerald-400 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/20 hover:scale-[1.01] active:scale-[0.99]"
+                        )}
+                      >
+                        <Sparkles className={cn("h-3.5 w-3.5", !hasClickedHint && "animate-pulse")} />
+                        {hasClickedHint ? (
+                          <span>📟 전술 힌트 확보됨 (정답 시작글자: "{currentQuiz.options[currentQuiz.correctIdx][0]}")</span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            🔍 무전분석: 원문 읽고 힌트 & 지원품 받기 <span className="ml-1.5 text-[9px] text-emerald-500 font-extrabold bg-emerald-950 border border-emerald-900/40 px-1.5 py-0.5 rounded animate-pulse">+15G / +1포션 / +30초</span>
+                          </span>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2001,13 +2068,21 @@ export function RSSMindMap() {
                       href={item.link}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => {
+                        playSFX("click");
+                        setPlayerGold(prev => prev + 5);
+                        setBattleLogs(prev => [
+                          ...prev,
+                          `📚 [학습 보상] 리스트에서 "${item.title}" 원문을 확인하고 전술 자금을 획득했습니다! (+5 Gold)`
+                        ]);
+                      }}
                       className={cn(
-                        "block rounded-lg border p-3 transition-all hover:shadow-lg",
+                        "block rounded-lg border p-3 transition-all hover:shadow-lg hover:scale-[1.01] cursor-pointer",
                         "border-zinc-700/50 bg-zinc-900/50 hover:bg-zinc-800/50"
                       )}
                     >
                       <div className="line-clamp-2 text-sm font-medium text-zinc-200">{item.title}</div>
-                      <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+                      <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500 flex-wrap">
                         <span>{formatDate(item.pubDate)}</span>
                         {item.games && item.games.length > 0 && (
                           <Badge className="bg-fuchsia-500/20 text-fuchsia-400 text-[10px]">
@@ -2015,7 +2090,11 @@ export function RSSMindMap() {
                             {item.games[0]}
                           </Badge>
                         )}
-                        <ExternalLink className="h-3 w-3" />
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold border border-emerald-900/40 bg-emerald-950/30 text-emerald-400 rounded-full px-2 py-0.5 animate-pulse">
+                          <Coins className="h-2.5 w-2.5 shrink-0" />
+                          원문읽기 +5G
+                        </span>
+                        <ExternalLink className="ml-auto h-3 w-3" />
                       </div>
                     </a>
                   ))}
