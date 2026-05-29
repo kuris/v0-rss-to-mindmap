@@ -208,12 +208,52 @@ const nodeTypes = {
   item: ItemNode,
 }
 
+function selectTargetWord(title: string): string {
+  const words = title.split(/\s+/)
+    .map(w => w.replace(/[\[\]\(\)\{\}"'🚀🎮🔥💻💡!?,.-]/g, "").trim())
+    .filter(w => w.length >= 2);
+    
+  if (words.length === 0) return "학습";
+
+  const STOP_WORDS = ["방법", "하는", "있다", "없다", "알아", "오늘", "이번", "정보", "꿀팁", "추천", "리뷰", "후기", "소개", "진짜", "진행", "보기", "하고", "해서", "인한", "위한", "대한", "통해", "정리", "으로", "에서", "속", "의", "를", "을", "에", "과", "와"];
+
+  const nonStopWords = words.filter(w => !STOP_WORDS.includes(w));
+  const pool = nonStopWords.length > 0 ? nonStopWords : words;
+
+  const englishCandidates = pool.filter(w => /^[a-zA-Z]{3,12}$/.test(w));
+  if (englishCandidates.length > 0) {
+    let longest = englishCandidates[0];
+    for (const w of englishCandidates) {
+      if (w.length > longest.length) {
+        longest = w;
+      }
+    }
+    return longest;
+  }
+
+  const preferredKorean = pool.filter(w => w.length >= 3 && w.length <= 7);
+  if (preferredKorean.length > 0) {
+    let longest = preferredKorean[0];
+    for (const w of preferredKorean) {
+      if (w.length > longest.length) {
+        longest = w;
+      }
+    }
+    return longest;
+  }
+
+  let longest = pool[0];
+  for (const w of pool) {
+    if (w.length > longest.length) {
+      longest = w;
+    }
+  }
+  
+  return longest || "학습";
+}
+
 function maskTitle(title: string): string {
-  const words = title.split(/\s+/).map(w => w.replace(/[\[\]\(\)\{\}"'🚀🎮🔥💻💡!?,.-]/g, "").trim()).filter(w => w.length >= 2);
-  if (words.length === 0) return title;
-  
-  let targetWord = words.find(w => /^[a-zA-Z]{3,12}$/.test(w)) || words.find(w => w.length >= 3 && w.length <= 6) || words[Math.floor(words.length / 2)] || "학습";
-  
+  const targetWord = selectTargetWord(title);
   const escapedTarget = targetWord.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
   const regex = new RegExp(escapedTarget, 'g');
   return title.replace(regex, " ____ ");
@@ -435,13 +475,8 @@ export function RSSMindMap() {
 
   const generateQuiz = useCallback((item: RSSItem, categoryItems: RSSItem[]) => {
     const title = item.title;
-    // 제목에서 퀴즈 단어로 삼을 후보 단어를 추출합니다.
-    const words = title.split(/\s+/).map(w => w.replace(/[\[\]\(\)\{\}"'🚀🎮🔥💻💡!?,.-]/g, "").trim()).filter(w => w.length >= 2);
+    const targetWord = selectTargetWord(title);
     
-    // 가장 적절한 단어 선택 (영어 단어나 한글 명사구)
-    let targetWord = words.find(w => /^[a-zA-Z]{3,12}$/.test(w)) || words.find(w => w.length >= 3 && w.length <= 6) || words[Math.floor(words.length / 2)] || "학습";
-    
-    // 제목에서 해당 단어를 ____로 치환합니다.
     const escapedTarget = targetWord.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     const regex = new RegExp(escapedTarget, 'g');
     const question = title.replace(regex, " ____ ");
@@ -452,7 +487,7 @@ export function RSSMindMap() {
       if (otherItem.title !== title) {
         otherItem.title.split(/\s+/).forEach(w => {
           const cleanW = w.replace(/[\[\]\(\)\{\}"'🚀🎮🔥💻💡!?,.-]/g, "").trim();
-          if (cleanW.length >= 2 && cleanW !== targetWord && cleanW.length <= 6) {
+          if (cleanW.length >= 2 && cleanW !== targetWord && cleanW.length <= 7) {
             distractors.add(cleanW);
           }
         });
