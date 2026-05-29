@@ -54,6 +54,7 @@ function parseXML(xml: string): ParsedRSS {
     { pattern: /퀴즈|quiz|판독기|판독|mbti|헬모드|원소/i, name: "퀴즈", type: "학습" },
     { pattern: /스네이크|snake/i, name: "스네이크", type: "아케이드" },
     { pattern: /슈팅|shooting/i, name: "슈팅 게임", type: "액션" },
+    { pattern: /벽돌|breakout|브레이크/i, name: "벽돌깨기", type: "아케이드" },
     { pattern: /미니\s*게임|mini\s*game|광클|클릭\s*게임|토익\s*게임|밀실|결초보은/i, name: "미니 게임", type: "기타" },
   ]
 
@@ -223,6 +224,7 @@ export async function GET() {
       { pattern: /퀴즈|quiz|판독기|판독|mbti|헬모드|원소/i, name: "퀴즈", type: "학습" },
       { pattern: /스네이크|snake/i, name: "스네이크", type: "아케이드" },
       { pattern: /슈팅|shooting/i, name: "슈팅 게임", type: "액션" },
+      { pattern: /벽돌|breakout|브레이크/i, name: "벽돌깨기", type: "아케이드" },
       { pattern: /미니\s*게임|mini\s*game|광클|클릭\s*게임|토익\s*게임|밀실|결초보은|기억력이\s*붕어니|다시\s*묶어보기|다시\s*맞춰보기|쌍이\s*맞는|맞는\s*키워드|미션\s*완료|데이터\s*칩/i, name: "미니 게임", type: "기타" },
     ]
 

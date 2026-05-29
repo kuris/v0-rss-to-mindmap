@@ -215,6 +215,7 @@ export function RSSMindMap() {
   const [viewMode, setViewMode] = useState<"map" | "list" | "games" | "book">("map")
   const [bookChapter, setBookChapter] = useState(0)
   const [bookPage, setBookPage] = useState(0)
+  const [bookTheme, setBookTheme] = useState<"parchment" | "modern">("parchment")
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
@@ -764,13 +765,49 @@ export function RSSMindMap() {
         const isFirst = bookChapter === 0 && bookPage === 0
         const isLast = bookChapter === chapters.length - 1 && bookPage === totalPages - 1
 
+        const isParchment = bookTheme === "parchment"
+
         return (
-          <div className="relative flex gap-0 overflow-hidden rounded-2xl p-3 bg-[#2b1708] border-[8px] border-[#3a200e] ring-2 ring-[#c5a86a]/80 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)]" style={{ minHeight: 650 }}>
+          <div 
+            className={cn(
+              "relative flex gap-0 overflow-hidden rounded-2xl p-3 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] transition-colors duration-300",
+              isParchment 
+                ? "bg-[#2b1708] border-[8px] border-[#3a200e] ring-2 ring-[#c5a86a]/80" 
+                : "bg-[#0d0d11] border-[8px] border-zinc-800 ring-2 ring-zinc-700/30"
+            )}
+            style={{ minHeight: 650 }}
+          >
             {/* 목차 사이드바 (왼쪽 페이지) */}
-            <div className="w-56 shrink-0 bg-parchment text-[#3c2a1e] font-rpg-body flex flex-col relative border-r-2 border-[#8c7456]/40 shadow-[inset_-10px_0_20px_rgba(0,0,0,0.06)] rounded-l-lg">
-              <div className="border-b border-[#8c7456]/30 px-5 py-5">
-                <div className="text-[10px] font-rpg-title font-bold tracking-widest text-[#8c7456] mb-1.5">Table of Contents</div>
-                <div className="text-sm font-bold font-rpg-title text-[#4c321a] leading-snug line-clamp-2">{data?.channelTitle}</div>
+            <div 
+              className={cn(
+                "w-56 shrink-0 flex flex-col relative transition-all duration-300 rounded-l-lg",
+                isParchment
+                  ? "bg-parchment text-[#3c2a1e] font-rpg-body border-r-2 border-[#8c7456]/40 shadow-[inset_-10px_0_20px_rgba(0,0,0,0.06)]"
+                  : "bg-zinc-900 text-zinc-300 font-sans border-r border-zinc-800 shadow-[inset_-10px_0_20px_rgba(0,0,0,0.15)]"
+              )}
+            >
+              <div 
+                className={cn(
+                  "px-5 py-5 border-b transition-colors duration-300",
+                  isParchment ? "border-[#8c7456]/30" : "border-zinc-800"
+                )}
+              >
+                <div 
+                  className={cn(
+                    "text-[10px] font-bold tracking-widest mb-1.5 transition-colors duration-300",
+                    isParchment ? "font-rpg-title text-[#8c7456]" : "font-sans text-zinc-500"
+                  )}
+                >
+                  Table of Contents
+                </div>
+                <div 
+                  className={cn(
+                    "text-sm font-bold leading-snug line-clamp-2 transition-colors duration-300",
+                    isParchment ? "font-rpg-title text-[#4c321a]" : "font-sans text-zinc-200"
+                  )}
+                >
+                  {data?.channelTitle}
+                </div>
               </div>
               <div className="flex-1 overflow-y-auto py-3 px-2">
                 {chapters.map((ch, idx) => {
@@ -781,16 +818,26 @@ export function RSSMindMap() {
                       key={ch.id}
                       onClick={() => { setBookChapter(idx); setBookPage(0) }}
                       className={cn(
-                        "w-full text-left px-3 py-2 text-xs transition-all flex items-start gap-2 rounded-md font-rpg-body",
+                        "w-full text-left px-3 py-2 text-xs flex items-start gap-2 rounded-md transition-all duration-300 cursor-pointer",
+                        isParchment ? "font-rpg-body" : "font-sans",
                         active
-                          ? "bg-[#8c7456]/15 text-[#402306] font-bold border-l-4 border-[#8c7456] pl-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.05)]"
-                          : "text-[#6d5137] hover:bg-[#8c7456]/10 hover:text-[#3c2a1e]"
+                          ? (isParchment
+                              ? "bg-[#8c7456]/15 text-[#402306] font-bold border-l-4 border-[#8c7456] pl-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.05)]"
+                              : "bg-zinc-800 text-zinc-100 font-bold border-l-4 border-indigo-500 pl-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.2)]")
+                          : (isParchment
+                              ? "text-[#6d5137] hover:bg-[#8c7456]/10 hover:text-[#3c2a1e]"
+                              : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200")
                       )}
                     >
                       {!ch.isToC && (
                         <span
-                          className="mt-0.5 shrink-0 rounded border border-[#8c7456]/40 px-1 py-0.5 text-[8px] font-bold bg-[#eadeb8]/30 font-rpg-title"
-                          style={{ color: chColors?.hex || "#8c7456" }}
+                          className={cn(
+                            "mt-0.5 shrink-0 rounded border px-1 py-0.5 text-[8px] font-bold transition-all duration-300",
+                            isParchment
+                              ? "border-[#8c7456]/40 bg-[#eadeb8]/30 font-rpg-title"
+                              : "border-zinc-700 bg-zinc-800 font-sans"
+                          )}
+                          style={{ color: chColors?.hex || (isParchment ? "#8c7456" : "#818cf8") }}
                         >
                           {(ch as any).chapterNum}
                         </span>
@@ -800,23 +847,96 @@ export function RSSMindMap() {
                   )
                 })}
               </div>
-              <div className="border-t border-[#8c7456]/30 px-5 py-3.5 text-[10px] text-[#8c7456] italic font-medium">
+              <div 
+                className={cn(
+                  "px-5 py-3.5 text-[10px] font-medium border-t transition-colors duration-300",
+                  isParchment 
+                    ? "border-[#8c7456]/30 text-[#8c7456] font-rpg-body italic" 
+                    : "border-zinc-800 text-zinc-500 font-sans"
+                )}
+              >
                 총 {data?.items.length}편 수록
               </div>
             </div>
 
-            {/* RPG 책 중간 책등(접힌 그림자) 효과선 (w-56은 224px + 12px 패딩 + 8px 보더 = 244px) */}
-            <div className="absolute top-0 bottom-0 left-[244px] w-6 pointer-events-none z-10 bg-gradient-to-r from-black/0 via-black/35 to-black/0" />
+            {/* RPG 책 중간 책등(접힌 그림자) 효과선 */}
+            <div 
+              className={cn(
+                "absolute top-0 bottom-0 left-[244px] w-6 pointer-events-none z-10 transition-all duration-300",
+                isParchment 
+                  ? "bg-gradient-to-r from-black/0 via-black/35 to-black/0" 
+                  : "bg-gradient-to-r from-black/0 via-black/55 to-black/0"
+              )}
+            />
 
             {/* 본문 페이지 (오른쪽 페이지) */}
-            <div className="flex flex-1 flex-col bg-parchment text-[#2b1a0e] font-rpg-body shadow-[inset_10px_0_20px_rgba(0,0,0,0.06)] rounded-r-lg">
+            <div 
+              className={cn(
+                "flex flex-1 flex-col transition-all duration-300 rounded-r-lg",
+                isParchment
+                  ? "bg-parchment text-[#2b1a0e] font-rpg-body shadow-[inset_10px_0_20px_rgba(0,0,0,0.06)]"
+                  : "bg-zinc-950 text-zinc-300 font-sans shadow-[inset_10px_0_20px_rgba(0,0,0,0.2)]"
+              )}
+            >
               {/* 페이지 헤더 */}
-              <div className="flex items-center justify-between border-b border-[#8c7456]/30 px-8 py-4">
-                <div className="text-[10px] font-rpg-title font-bold tracking-widest text-[#8c7456]">
+              <div 
+                className={cn(
+                  "flex items-center justify-between border-b px-8 py-4 transition-colors duration-300",
+                  isParchment ? "border-[#8c7456]/30" : "border-zinc-800"
+                )}
+              >
+                <div 
+                  className={cn(
+                    "text-[10px] font-bold tracking-widest transition-colors duration-300",
+                    isParchment ? "font-rpg-title text-[#8c7456]" : "font-sans text-zinc-500"
+                  )}
+                >
                   {currentChapter.isToC ? "Index" : `Chapter ${(currentChapter as any).chapterNum}`}
                 </div>
-                <div className="text-xs text-[#8c7456] italic font-medium">
-                  {currentChapter.isToC ? "Start" : `${bookPage + 1} / ${totalPages} Page`}
+
+                {/* 테마 토글 및 페이지 번호 */}
+                <div className="flex items-center gap-4">
+                  {/* Theme Switcher Segmented Control */}
+                  <div 
+                    className={cn(
+                      "flex rounded-md p-0.5 text-[10px] font-semibold border transition-all duration-300",
+                      isParchment 
+                        ? "bg-[#eadeb8]/40 border-[#8c7456]/40" 
+                        : "bg-zinc-900 border-zinc-800"
+                    )}
+                  >
+                    <button
+                      onClick={() => setBookTheme("parchment")}
+                      className={cn(
+                        "px-2 py-0.5 rounded transition-all duration-200 cursor-pointer",
+                        bookTheme === "parchment"
+                          ? (isParchment ? "bg-[#8c7456] text-[#fbf9f4] shadow-sm" : "bg-zinc-700 text-white")
+                          : (isParchment ? "text-[#8c7456] hover:bg-[#8c7456]/15" : "text-zinc-400 hover:text-zinc-200")
+                      )}
+                    >
+                      양피지 고서
+                    </button>
+                    <button
+                      onClick={() => setBookTheme("modern")}
+                      className={cn(
+                        "px-2 py-0.5 rounded transition-all duration-200 cursor-pointer",
+                        bookTheme === "modern"
+                          ? (isParchment ? "bg-[#8c7456] text-[#fbf9f4] shadow-sm" : "bg-zinc-800 text-zinc-100 shadow-sm")
+                          : (isParchment ? "text-[#8c7456] hover:bg-[#8c7456]/15" : "text-zinc-500 hover:text-zinc-300")
+                      )}
+                    >
+                      일반 도서
+                    </button>
+                  </div>
+
+                  <div 
+                    className={cn(
+                      "text-xs font-medium transition-colors duration-300",
+                      isParchment ? "font-rpg-title text-[#8c7456] italic" : "font-sans text-zinc-500"
+                    )}
+                  >
+                    {currentChapter.isToC ? "Start" : `${bookPage + 1} / ${totalPages} Page`}
+                  </div>
                 </div>
               </div>
 
@@ -825,13 +945,41 @@ export function RSSMindMap() {
                 {currentChapter.isToC ? (
                   // 목차 페이지
                   <div>
-                    <h1 className="mb-2 text-2xl font-bold font-rpg-title text-[#4c321a] tracking-wide text-center mt-2">목차</h1>
+                    <h1 
+                      className={cn(
+                        "mb-2 text-2xl font-bold tracking-wide text-center mt-2 transition-colors duration-300",
+                        isParchment ? "font-rpg-title text-[#4c321a]" : "font-sans text-zinc-100"
+                      )}
+                    >
+                      목차
+                    </h1>
                     
                     {/* 장식적 디바이더 */}
                     <div className="flex items-center justify-center my-6 gap-3 select-none">
-                      <div className="h-[1px] bg-gradient-to-r from-transparent via-[#8c7456]/60 to-transparent flex-1"></div>
-                      <div className="text-[#8c7456] text-xs">◆ ❖ ◆</div>
-                      <div className="h-[1px] bg-gradient-to-r from-transparent via-[#8c7456]/60 to-transparent flex-1"></div>
+                      <div 
+                        className={cn(
+                          "h-[1px] flex-1 transition-all duration-300",
+                          isParchment 
+                            ? "bg-gradient-to-r from-transparent via-[#8c7456]/60 to-transparent" 
+                            : "bg-gradient-to-r from-transparent via-zinc-800 to-transparent"
+                        )}
+                      />
+                      <div 
+                        className={cn(
+                          "text-xs transition-colors duration-300",
+                          isParchment ? "text-[#8c7456]" : "text-zinc-600"
+                        )}
+                      >
+                        {isParchment ? "◆ ❖ ◆" : "❖"}
+                      </div>
+                      <div 
+                        className={cn(
+                          "h-[1px] flex-1 transition-all duration-300",
+                          isParchment 
+                            ? "bg-gradient-to-r from-transparent via-[#8c7456]/60 to-transparent" 
+                            : "bg-gradient-to-r from-transparent via-zinc-800 to-transparent"
+                        )}
+                      />
                     </div>
 
                     <div className="space-y-4 max-w-md mx-auto">
@@ -841,21 +989,54 @@ export function RSSMindMap() {
                           <button
                             key={ch.id}
                             onClick={() => { setBookChapter(chapters.indexOf(ch)); setBookPage(0) }}
-                            className="flex w-full items-baseline gap-2 text-left group transition-colors py-1"
+                            className="flex w-full items-baseline gap-2 text-left group transition-colors py-1 cursor-pointer"
                           >
-                            <span className="font-rpg-title text-sm font-bold text-[#8c7456] group-hover:text-[#4c321a] shrink-0">
+                            <span 
+                              className={cn(
+                                "text-sm font-bold shrink-0 transition-colors duration-300",
+                                isParchment 
+                                  ? "font-rpg-title text-[#8c7456] group-hover:text-[#4c321a]" 
+                                  : "font-sans text-zinc-400 group-hover:text-zinc-200"
+                              )}
+                            >
                               제{(ch as any).chapterNum}장
                             </span>
-                            <span className="flex-1 border-b border-dotted border-[#8c7456]/60 pb-1 font-rpg-body text-sm text-[#5c3e21] group-hover:text-[#2b1a0e] font-medium">
+                            <span 
+                              className={cn(
+                                "flex-1 border-b border-dotted pb-1 text-sm font-medium transition-colors duration-300",
+                                isParchment 
+                                  ? "border-[#8c7456]/60 text-[#5c3e21] group-hover:text-[#2b1a0e] font-rpg-body" 
+                                  : "border-zinc-800 text-zinc-300 group-hover:text-zinc-100 font-sans"
+                              )}
+                            >
                               {ch.title}
                             </span>
-                            <span className="shrink-0 font-rpg-body text-xs text-[#8c7456] group-hover:text-[#4c321a] italic">{ch.items.length}편</span>
+                            <span 
+                              className={cn(
+                                "shrink-0 text-xs transition-colors duration-300",
+                                isParchment 
+                                  ? "font-rpg-body text-[#8c7456] group-hover:text-[#4c321a] italic" 
+                                  : "font-sans text-zinc-500 group-hover:text-zinc-300"
+                              )}
+                            >
+                              {ch.items.length}편
+                            </span>
                           </button>
                         )
                       })}
                     </div>
-                    <div className="mt-12 pt-6 border-t border-[#8c7456]/30 text-center">
-                      <div className="text-xs text-[#8c7456] italic font-medium">
+                    <div 
+                      className={cn(
+                        "mt-12 pt-6 border-t text-center transition-colors duration-300",
+                        isParchment ? "border-[#8c7456]/30" : "border-zinc-900"
+                      )}
+                    >
+                      <div 
+                        className={cn(
+                          "text-xs font-medium transition-colors duration-300",
+                          isParchment ? "text-[#8c7456] font-rpg-body italic" : "text-zinc-500 font-sans"
+                        )}
+                      >
                         게임 콘텐츠 {games.length}종 수록 · 총 {data?.items.length}편의 방대한 서사 수록
                       </div>
                     </div>
@@ -863,18 +1044,50 @@ export function RSSMindMap() {
                 ) : (
                   // 챕터 본문 페이지
                   <div>
-                    <div className="mb-1.5 text-xs font-bold font-rpg-title text-center" style={{ color: colors?.hex || "#8c7456" }}>
+                    <div 
+                      className={cn(
+                        "mb-1.5 text-xs font-bold text-center transition-all duration-300",
+                        isParchment ? "font-rpg-title" : "font-sans"
+                      )} 
+                      style={{ color: colors?.hex || (isParchment ? "#8c7456" : "#6366f1") }}
+                    >
                       제{(currentChapter as any).chapterNum}장
                     </div>
-                    <h2 className="mb-2 text-2xl font-bold font-rpg-title text-[#4c321a] tracking-wide text-center">
+                    <h2 
+                      className={cn(
+                        "mb-2 text-2xl font-bold tracking-wide text-center transition-colors duration-300",
+                        isParchment ? "font-rpg-title text-[#4c321a]" : "font-sans text-zinc-100"
+                      )}
+                    >
                       {currentChapter.title}
                     </h2>
 
                     {/* 장식적 디바이더 */}
                     <div className="flex items-center justify-center my-6 gap-3 select-none">
-                      <div className="h-[1px] bg-gradient-to-r from-transparent via-[#8c7456]/60 to-transparent flex-1"></div>
-                      <div className="text-[#8c7456] text-xs">◆ ❖ ◆</div>
-                      <div className="h-[1px] bg-gradient-to-r from-transparent via-[#8c7456]/60 to-transparent flex-1"></div>
+                      <div 
+                        className={cn(
+                          "h-[1px] flex-1 transition-all duration-300",
+                          isParchment 
+                            ? "bg-gradient-to-r from-transparent via-[#8c7456]/60 to-transparent" 
+                            : "bg-gradient-to-r from-transparent via-zinc-800 to-transparent"
+                        )}
+                      />
+                      <div 
+                        className={cn(
+                          "text-xs transition-colors duration-300",
+                          isParchment ? "text-[#8c7456]" : "text-zinc-600"
+                        )}
+                      >
+                        {isParchment ? "◆ ❖ ◆" : "❖"}
+                      </div>
+                      <div 
+                        className={cn(
+                          "h-[1px] flex-1 transition-all duration-300",
+                          isParchment 
+                            ? "bg-gradient-to-r from-transparent via-[#8c7456]/60 to-transparent" 
+                            : "bg-gradient-to-r from-transparent via-zinc-800 to-transparent"
+                        )}
+                      />
                     </div>
 
                     <div className="space-y-4">
@@ -886,18 +1099,40 @@ export function RSSMindMap() {
                             href={item.link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="group flex gap-4 rounded-xl border border-[#8c7456]/30 bg-[#fbf9f4]/60 p-4 transition-all hover:scale-[1.01] hover:border-[#8c7456] hover:bg-[#fbf9f4] hover:shadow-[0_4px_15px_rgba(140,116,86,0.12)]"
+                            className={cn(
+                              "group flex gap-4 rounded-xl p-4 transition-all duration-200 hover:scale-[1.01] cursor-pointer",
+                              isParchment
+                                ? "border border-[#8c7456]/30 bg-[#fbf9f4]/60 hover:border-[#8c7456] hover:bg-[#fbf9f4] hover:shadow-[0_4px_15px_rgba(140,116,86,0.12)]"
+                                : "border border-zinc-800/80 bg-zinc-900/30 hover:border-zinc-700 hover:bg-zinc-900/60 hover:shadow-[0_4px_15px_rgba(0,0,0,0.3)]"
+                            )}
                           >
                             <div
-                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold font-rpg-title border border-[#8c7456]/40 bg-[#eadeb8]/30 text-[#8c7456] group-hover:bg-[#eadeb8]/50"
+                              className={cn(
+                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold border transition-all duration-200",
+                                isParchment
+                                  ? "font-rpg-title border-[#8c7456]/40 bg-[#eadeb8]/30 text-[#8c7456] group-hover:bg-[#eadeb8]/50"
+                                  : "font-sans border-zinc-800 bg-zinc-900 text-zinc-400 group-hover:bg-zinc-800/80 group-hover:text-zinc-200"
+                              )}
                             >
                               {globalIdx}
                             </div>
                             <div className="flex-1">
-                              <div className="text-sm font-semibold leading-snug text-[#4c321a] font-rpg-body group-hover:text-[#2b1a0e]">
+                              <div 
+                                className={cn(
+                                  "text-sm font-semibold leading-snug transition-colors duration-200",
+                                  isParchment 
+                                    ? "text-[#4c321a] font-rpg-body group-hover:text-[#2b1a0e]" 
+                                    : "text-zinc-200 font-sans group-hover:text-white"
+                                )}
+                              >
                                 {item.title}
                               </div>
-                              <div className="mt-2 flex items-center gap-3 text-[11px] text-[#8c7456] font-rpg-body italic">
+                              <div 
+                                className={cn(
+                                  "mt-2 flex items-center gap-3 text-[11px] transition-colors duration-200",
+                                  isParchment ? "text-[#8c7456] font-rpg-body italic" : "text-zinc-500 font-sans"
+                                )}
+                              >
                                 <span>{formatDate(item.pubDate)}</span>
                                 {item.games && item.games.length > 0 && (
                                   <span className="flex items-center gap-1 text-fuchsia-600 font-medium">
@@ -917,11 +1152,21 @@ export function RSSMindMap() {
               </div>
 
               {/* 페이지 푸터 - 이전/다음 */}
-              <div className="flex items-center justify-between border-t border-[#8c7456]/30 px-8 py-4">
+              <div 
+                className={cn(
+                  "flex items-center justify-between border-t px-8 py-4 transition-colors duration-300",
+                  isParchment ? "border-[#8c7456]/30" : "border-zinc-800"
+                )}
+              >
                 <button
                   onClick={goPrev}
                   disabled={isFirst}
-                  className="flex items-center gap-1.5 border border-[#8c7456]/40 bg-[#eadeb8]/30 hover:bg-[#eadeb8]/60 text-[#5c3e21] font-rpg-title font-bold text-[11px] rounded-lg px-3 py-1.5 transition-all hover:shadow-[0_2px_8px_rgba(140,116,86,0.1)] disabled:opacity-30 disabled:pointer-events-none"
+                  className={cn(
+                    "flex items-center gap-1.5 border text-[11px] rounded-lg px-3 py-1.5 transition-all cursor-pointer disabled:opacity-30 disabled:pointer-events-none",
+                    isParchment
+                      ? "border-[#8c7456]/40 bg-[#eadeb8]/30 hover:bg-[#eadeb8]/60 text-[#5c3e21] font-rpg-title font-bold hover:shadow-[0_2px_8px_rgba(140,116,86,0.1)]"
+                      : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-sans font-medium hover:shadow-[0_2px_8px_rgba(0,0,0,0.2)]"
+                  )}
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                   이전 쪽
@@ -932,8 +1177,13 @@ export function RSSMindMap() {
                       key={i}
                       onClick={() => setBookPage(i)}
                       className={cn(
-                        "w-2.5 h-2.5 rotate-45 transition-all",
-                        i === bookPage ? "bg-[#8c7456] scale-125" : "bg-[#8c7456]/30 hover:bg-[#8c7456]/60"
+                        "transition-all cursor-pointer",
+                        isParchment
+                          ? "w-2.5 h-2.5 rotate-45"
+                          : "w-2 h-2 rounded-full",
+                        i === bookPage
+                          ? (isParchment ? "bg-[#8c7456] scale-125" : "bg-zinc-200 scale-125 shadow-sm")
+                          : (isParchment ? "bg-[#8c7456]/30 hover:bg-[#8c7456]/60" : "bg-zinc-700 hover:bg-zinc-500")
                       )}
                     />
                   ))}
@@ -941,7 +1191,12 @@ export function RSSMindMap() {
                 <button
                   onClick={goNext}
                   disabled={isLast}
-                  className="flex items-center gap-1.5 border border-[#8c7456]/40 bg-[#eadeb8]/30 hover:bg-[#eadeb8]/60 text-[#5c3e21] font-rpg-title font-bold text-[11px] rounded-lg px-3 py-1.5 transition-all hover:shadow-[0_2px_8px_rgba(140,116,86,0.1)] disabled:opacity-30 disabled:pointer-events-none"
+                  className={cn(
+                    "flex items-center gap-1.5 border text-[11px] rounded-lg px-3 py-1.5 transition-all cursor-pointer disabled:opacity-30 disabled:pointer-events-none",
+                    isParchment
+                      ? "border-[#8c7456]/40 bg-[#eadeb8]/30 hover:bg-[#eadeb8]/60 text-[#5c3e21] font-rpg-title font-bold hover:shadow-[0_2px_8px_rgba(140,116,86,0.1)]"
+                      : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-sans font-medium hover:shadow-[0_2px_8px_rgba(0,0,0,0.2)]"
+                  )}
                 >
                   다음 쪽
                   <ChevronRight className="h-3.5 w-3.5" />
